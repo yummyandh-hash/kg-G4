@@ -26,6 +26,15 @@ class Evidence:
     entity_ids: List[str] = field(default_factory=list)
     relation_path: List[str] = field(default_factory=list)
 
+@dataclass
+class RouteDecision:
+    """Adaptive Router 输出的路由决策结果。"""
+
+    query_type: str
+    complexity_score: float
+    selected_route: str
+    reason: str
+    
 class Retriever(Protocol):
     """所有 Retriever 需要遵守的统一接口。"""
 

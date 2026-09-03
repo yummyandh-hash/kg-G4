@@ -1,4 +1,4 @@
-from orchestration.models import Evidence, RetrievalContext, Retriever
+from orchestration.models import Evidence, RetrievalContext, Retriever, RouteDecision
 
 
 def test_retrieval_context_defaults():
@@ -52,3 +52,16 @@ def test_retriever_contract():
 
     assert len(evidences) == 1
     assert evidences[0].retrieval_method == "vector"
+
+def test_route_decision():
+    decision = RouteDecision(
+        query_type="fact",
+        complexity_score=0.2,
+        selected_route="vector",
+        reason="simple factual query",
+    )
+
+    assert decision.query_type == "fact"
+    assert decision.complexity_score == 0.2
+    assert decision.selected_route == "vector"
+    assert decision.reason == "simple factual query"

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Protocol
 
 
 @dataclass
@@ -25,3 +25,13 @@ class Evidence:
 
     entity_ids: List[str] = field(default_factory=list)
     relation_path: List[str] = field(default_factory=list)
+
+class Retriever(Protocol):
+    """所有 Retriever 需要遵守的统一接口。"""
+
+    def retrieve(
+        self,
+        query: str,
+        context: RetrievalContext,
+    ) -> List[Evidence]:
+        ...

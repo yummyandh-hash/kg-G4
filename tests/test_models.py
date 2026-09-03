@@ -1,5 +1,10 @@
-from orchestration.models import Evidence, RetrievalContext, Retriever, RouteDecision
-
+from orchestration.models import (
+    AnswerResponse,
+    Evidence,
+    RetrievalContext,
+    Retriever,
+    RouteDecision,
+)
 
 def test_retrieval_context_defaults():
     context = RetrievalContext(
@@ -65,3 +70,19 @@ def test_route_decision():
     assert decision.complexity_score == 0.2
     assert decision.selected_route == "vector"
     assert decision.reason == "simple factual query"
+
+def test_answer_response_defaults():
+    response = AnswerResponse(
+        answer="苏绣是中国传统刺绣技艺之一。",
+        query_type="fact",
+        complexity_score=0.2,
+        selected_route="vector",
+        route_reason="simple factual query",
+    )
+
+    assert response.answer == "苏绣是中国传统刺绣技艺之一。"
+    assert response.selected_route == "vector"
+    assert response.evidences == []
+    assert response.paths == []
+    assert response.sources == []
+    assert response.timing == {}

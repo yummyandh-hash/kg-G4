@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol
 
 
 @dataclass
@@ -26,6 +26,7 @@ class Evidence:
     entity_ids: List[str] = field(default_factory=list)
     relation_path: List[str] = field(default_factory=list)
 
+
 @dataclass
 class RouteDecision:
     """Adaptive Router 输出的路由决策结果。"""
@@ -34,7 +35,8 @@ class RouteDecision:
     complexity_score: float
     selected_route: str
     reason: str
-    
+
+
 class Retriever(Protocol):
     """所有 Retriever 需要遵守的统一接口。"""
 
@@ -44,3 +46,19 @@ class Retriever(Protocol):
         context: RetrievalContext,
     ) -> List[Evidence]:
         ...
+
+
+@dataclass
+class AnswerResponse:
+    """A 最终返回给 Web/API 层的问答结果。"""
+
+    answer: str
+    query_type: str
+    complexity_score: float
+    selected_route: str
+    route_reason: str
+
+    evidences: List[Evidence] = field(default_factory=list)
+    paths: List[List[str]] = field(default_factory=list)
+    sources: List[str] = field(default_factory=list)
+    timing: Dict[str, float] = field(default_factory=dict)

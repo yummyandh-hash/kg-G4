@@ -36,6 +36,14 @@ class RouteDecision:
     selected_route: str
     reason: str
 
+@dataclass
+class Document:
+    """清洗后的统一文档结构。"""
+
+    document_id: str
+    title: str
+    content: str
+    source_url: str
 
 class Retriever(Protocol):
     """所有 Retriever 需要遵守的统一接口。"""

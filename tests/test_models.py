@@ -4,6 +4,7 @@ from orchestration.models import (
     RetrievalContext,
     Retriever,
     RouteDecision,
+    Document,
 )
 
 def test_retrieval_context_defaults():
@@ -43,7 +44,6 @@ class MockVectorRetriever:
                 score=0.9,
             )
         ]
-
 
 def test_retriever_contract():
     retriever: Retriever = MockVectorRetriever()
@@ -86,3 +86,15 @@ def test_answer_response_defaults():
     assert response.paths == []
     assert response.sources == []
     assert response.timing == {}
+
+def test_document():
+    document = Document(
+        document_id="doc_001",
+        title="苏绣",
+        content="苏绣是中国传统刺绣技艺之一。",
+        source_url="https://www.ihchina.cn/example",
+    )
+
+    assert document.document_id == "doc_001"
+    assert document.title == "苏绣"
+    assert document.source_url == "https://www.ihchina.cn/example"

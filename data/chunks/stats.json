@@ -1,0 +1,10 @@
+{
+  "total_documents": 1749,
+  "total_chunks": 27375,
+  "chunk_types": {
+    "basic_info": 1749,
+    "region_info": 1749,
+    "organization": 1749,
+    "detail_content": 22128
+  }
+}

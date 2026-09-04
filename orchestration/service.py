@@ -1,0 +1,231 @@
+from time import perf_counter
+from typing import List, Optional, Protocol
+
+from orchestration.models import (
+    AnswerResponse,
+    Evidence,
+    GraphEdge,
+    GraphNode,
+    RetrievalContext,
+    RouteDecision,
+)
+
+
+class Router(Protocol):
+    """统一的路由器接口，后续接入 A 模块。"""
+
+    def route(self, query: str) -> RouteDecision:
+        ...
+
+
+class Retriever(Protocol):
+    """统一的 Retriever 接口，后续接入 D 模块。"""
+
+    def retrieve(
+        self,
+        query: str,
+        context: RetrievalContext,
+    ) -> List[Evidence]:
+        ...
+
+
+class AnswerGenerator(Protocol):
+    """统一的答案生成接口，后续接入 LLM。"""
+
+    def generate(
+        self,
+        query: str,
+        evidences: List[Evidence],
+    ) -> str:
+        ...
+
+
+class MockRouter:
+    """Stage 1 临时路由器。
+
+    A 模块正式接入后，可以直接替换为 A 的 Router 实现。
+    """
+
+    def route(self, query: str) -> RouteDecision:
+        return RouteDecision(
+            query_type="knowledge",
+            complexity_score=0.3,
+            selected_route="vector",
+            reason="Stage 1 Mock Router：当前默认采用向量检索。",
+        )
+
+
+class MockRetriever:
+    """Stage 1 临时 Retriever。
+
+    D 模块正式接入后，可以直接替换为 VectorRetriever
+    或 GraphRetriever。
+    """
+
+    def retrieve(
+        self,
+        query: str,
+        context: RetrievalContext,
+    ) -> List[Evidence]:
+        return [
+            Evidence(
+                evidence_id="mock-evidence-001",
+                content=(
+                    "蜀绣是中国传统刺绣的重要代表之一，"
+                    "主要流传于四川地区，具有鲜明的地域文化特色。"
+                ),
+                retrieval_method="vector",
+                score=0.95,
+                source_id="mock-source-001",
+                source_url="https://www.ihchina.cn/",
+                entity_ids=["蜀绣", "四川"],
+                relation_path=["蜀绣", "分布于", "四川"],
+            )
+        ]
+
+
+class MockAnswerGenerator:
+    """Stage 1 临时答案生成器。
+
+    后续接入实际 LLM 后，只需要替换这个组件。
+    """
+
+    def generate(
+        self,
+        query: str,
+        evidences: List[Evidence],
+    ) -> str:
+        if not evidences:
+            return f"暂未检索到与“{query}”相关的有效证据。"
+
+        return (
+            f"根据检索到的非遗资料，"
+            f"问题“{query}”可以结合检索证据进行回答。"
+        )
+
+
+class QueryService:
+    """E 模块统一查询编排服务。
+
+    负责串联：
+        Router → Retriever → AnswerGenerator
+    并将结果整理为统一 AnswerResponse。
+    """
+
+    def __init__(
+        self,
+        router: Optional[Router] = None,
+        retriever: Optional[Retriever] = None,
+        answer_generator: Optional[AnswerGenerator] = None,
+    ):
+        self.router = router or MockRouter()
+        self.retriever = retriever or MockRetriever()
+        self.answer_generator = (
+            answer_generator or MockAnswerGenerator()
+        )
+
+    def query(self, question: str) -> AnswerResponse:
+        """执行一次完整查询。"""
+
+        start = perf_counter()
+
+        # 1. 路由判断
+        route_start = perf_counter()
+        decision = self.router.route(question)
+        route_time = perf_counter() - route_start
+
+        # 2. 构造检索上下文
+        context = RetrievalContext(
+            query_type=decision.query_type,
+            complexity_score=decision.complexity_score,
+            top_k=5,
+        )
+
+        # 3. 检索
+        retrieval_start = perf_counter()
+        evidences = self.retriever.retrieve(
+            question,
+            context,
+        )
+        retrieval_time = perf_counter() - retrieval_start
+
+        # 4. 答案生成
+        answer_start = perf_counter()
+        answer = self.answer_generator.generate(
+            question,
+            evidences,
+        )
+        answer_time = perf_counter() - answer_start
+
+        # 5. 整理关系路径
+        paths = [
+            evidence.relation_path
+            for evidence in evidences
+            if evidence.relation_path
+        ]
+
+        # 6. 整理来源
+        sources = [
+            evidence.source_id
+            for evidence in evidences
+            if evidence.source_id
+        ]
+
+        # 7. 构造图谱节点
+        node_map = {}
+
+        for evidence in evidences:
+            for entity_id in evidence.entity_ids:
+                if entity_id not in node_map:
+                    node_map[entity_id] = GraphNode(
+                        node_id=entity_id,
+                        label=entity_id,
+                    )
+
+        graph_nodes = list(node_map.values())
+
+        # 8. 构造图谱边
+        edge_map = {}
+
+        for path in paths:
+            if len(path) >= 3:
+                source = path[0]
+                relation = path[1]
+                target = path[2]
+
+                edge_key = (
+                    source,
+                    relation,
+                    target,
+                )
+
+                if edge_key not in edge_map:
+                    edge_map[edge_key] = GraphEdge(
+                        source=source,
+                        target=target,
+                        relation=relation,
+                    )
+
+        graph_edges = list(edge_map.values())
+
+        # 9. 总耗时
+        total_time = perf_counter() - start
+
+        return AnswerResponse(
+            answer=answer,
+            query_type=context.query_type,
+            complexity_score=context.complexity_score,
+            selected_route=decision.selected_route,
+            route_reason=decision.reason,
+            evidences=evidences,
+            paths=paths,
+            sources=sources,
+            timing={
+                "routing": route_time,
+                "retrieval": retrieval_time,
+                "answer_generation": answer_time,
+                "total": total_time,
+            },
+            graph_nodes=graph_nodes,
+            graph_edges=graph_edges,
+        )

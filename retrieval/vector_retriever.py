@@ -3,7 +3,6 @@ import json
 from typing import List
 import numpy as np
 from sentence_transformers import SentenceTransformer
-
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
 
 
@@ -28,13 +27,12 @@ class VectorRetriever(BaseRetriever):
         texts = [item["content"] for item in self.chunks]
         self.embeddings = self.model.encode(texts, normalize_embeddings=True, show_progress_bar=True)
 
-    def retrieve(self, request: RetrievalRequest) -> List[Evidence]:
+    def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         t0 = time.time()
         q_emb = self.model.encode(request.query, normalize_embeddings=True)
         scores = np.dot(self.embeddings, q_emb)
         top_idx = np.argsort(scores)[::-1][:request.top_k]
         latency = time.time() - t0
-
         res = []
         for idx in top_idx:
             item = self.chunks[idx]
@@ -59,8 +57,8 @@ class VectorRetriever(BaseRetriever):
 
 if __name__ == "__main__":
     retriever = VectorRetriever()
-    req = RetrievalRequest(query="苏绣 传承人", top_k=3)
-    out = retriever.retrieve(req)
+    out = retriever.retrieve(query="苏绣 传承人", context=None)
+
     print(f"共返回 {len(out)} 条结果\n")
     for i, ev in enumerate(out):
         print(f"---第{i+1}条 分数:{ev.score:.4f}---")

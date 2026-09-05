@@ -1,145 +1,166 @@
-from typing import List
-from neo4j import GraphDatabase
-import os
-import json
 import time
+import os
 from datetime import datetime
+from typing import List
+from neo4j import GraphDatabase, Driver
 from dotenv import load_dotenv
+
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
 
-# 定位到项目根目录，加载根目录下的.env
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv()
 
 
 class GraphRetriever(BaseRetriever):
     def __init__(self):
-        """从本地.env读取Neo4j连接信息，禁止硬编码凭证"""
-        uri = os.getenv("NEO4J_URI")
-        user = os.getenv("NEO4J_USER")
-        password = os.getenv("NEO4J_PASSWORD")
-        self.driver = None
-        if not uri or not user or not password:
-            print("[WARN] Neo4j环境变量缺失，graph检索降级返回空结果")
-            return
+        self.uri = os.getenv("NEO4J_URI")
+        self.user = os.getenv("NEO4J_USER")
+        self.password = os.getenv("NEO4J_PASSWORD")
+        self.driver: Driver | None = None
+        self._connect()
+
+    def _connect(self):
         try:
-            self.driver = GraphDatabase.driver(uri, auth=(user, password))
+            self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
             self.driver.verify_connectivity()
             print("[INFO] Neo4j连接验证成功")
         except Exception as e:
-            print(f"[WARN] Neo4j连接验证失败: {e}，graph检索降级返回空结果")
+            print(f"[ERROR] Neo4j连接失败: {e}")
             self.driver = None
 
-    def close(self):
-        """关闭数据库连接"""
-        if self.driver is not None:
-            self.driver.close()
-
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
-        """
-        图检索内部实现，Cypher查询，匹配InheritProject非遗节点，组装标准Evidence
-        """
-        res: List[Evidence] = []
+        """基础节点文本检索，根据query匹配InheritProject节点名称"""
+        evidences: List[Evidence] = []
         if self.driver is None:
-            return res
+            return evidences
+
         cypher = """
-MATCH (h:InheritProject)
-WHERE h.name CONTAINS $query_text OR h.canonical_name CONTAINS $query_text
-RETURN h.name AS project, h.attributes_json AS content, h.entity_id AS entity_id
-LIMIT $top_k
-"""
+        MATCH (n:InheritProject)
+        WHERE toLower(n.name) CONTAINS toLower($q_str)
+        RETURN n.name as name, n.attributes_json as attr, n.entity_id as eid
+        LIMIT $top_k
+        """
         t0 = time.time()
         try:
             with self.driver.session() as session:
-                records = session.run(
-                    cypher,
-                    query_text=request.query,
-                    top_k=request.top_k
-                )
-                for record in records:
-                    raw_json_str = record["content"]
-                    try:
-                        attr_dict = json.loads(raw_json_str)
-                    except (json.JSONDecodeError, TypeError):
-                        attr_dict = {}
-
+                records = session.run(cypher, q_str=request.query, top_k=request.top_k)
+                for rec in records:
+                    content = f"项目名称：{rec['name']}，属性信息：{rec['attr']}"
                     ev = Evidence(
-                        evidence=str(attr_dict),
-                        score=0.8,
-                        path=None,
+                        evidence=content,
+                        score=0.80,
+                        path=[],
                         retriever="graph_retriever",
                         latency=time.time() - t0,
-                        document_id=record["entity_id"],
-                        chunk_id=f"graph_{record['entity_id']}",
+                        document_id=rec["eid"] or "",
+                        chunk_id="graph_node",
                         source_url="",
-                        source_name=record["project"],
+                        source_name=rec["name"],
                         source_category="",
                         source_region="",
                         source_org="",
                         retrieved_at=datetime.now().isoformat(),
-                        source_batch="neo4j_graph"
+                        source_batch="neo4j_node"
                     )
-                    res.append(ev)
+                    evidences.append(ev)
         except Exception as e:
-            print(f"[WARN] graph查询发生异常 {e}，返回空证据列表")
-        return res
+            print(f"[WARN] graph node retrieve error: {e}")
+        return evidences
 
-    def _one_hop_retrieve(self, entity_name: str, top_k: int = 3) -> List[Evidence]:
-        """一跳邻域检索：从InheritProject向外查询直接关联节点，返回路径证据"""
+    def _one_hop_retrieve(self, entity_name: str, top_k: int = 4) -> List[Evidence]:
+        """一跳关系检索"""
         res: List[Evidence] = []
         if self.driver is None:
             return res
-        cypher_hop = """
-MATCH (h:InheritProject {name:$entity_name})-[r]-(neighbor)
-RETURN h.name AS src, type(r) AS rel, labels(neighbor)[0] AS neighbor_label, neighbor.name AS neighbor_name
-LIMIT $top_k
-"""
+        cypher_one_hop = """
+        MATCH (h:InheritProject {name:$entity_name})-[r]-(neigh)
+        RETURN h.name AS src, type(r) AS rel, neigh.name AS target
+        LIMIT $top_k
+        """
         t0 = time.time()
         try:
             with self.driver.session() as session:
-                records = session.run(cypher_hop, entity_name=entity_name, top_k=top_k)
+                records = session.run(cypher_one_hop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    path_text = f"{rec['src']} --[{rec['rel']}]--> {rec['neighbor_label']}:{rec['neighbor_name']}"
+                    path_text = f"{rec['src']} --[{rec['rel']}]--> {rec['target']}"
                     ev = Evidence(
                         evidence=path_text,
-                        score=0.7,
+                        score=0.70,
                         path=[path_text],
                         retriever="graph_retriever_one_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id="graph_hop",
+                        chunk_id="graph_one_hop",
                         source_url="",
                         source_name=rec["src"],
                         source_category="",
                         source_region="",
                         source_org="",
                         retrieved_at=datetime.now().isoformat(),
-                        source_batch="neo4j_hop"
+                        source_batch="neo4j_1hop"
                     )
                     res.append(ev)
         except Exception as e:
             print(f"[WARN] one‑hop查询异常:{e}")
         return res
 
+    def _two_hop_retrieve(self, entity_name: str, top_k: int = 4) -> List[Evidence]:
+        """两跳路径检索原型 Stage1，输出标准Evidence"""
+        res: List[Evidence] = []
+        if self.driver is None:
+            return res
+        cypher_two_hop = """
+        MATCH (h:InheritProject {name:$entity_name})-[r1]-(mid)-[r2]-(neigh2)
+        RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target_node
+        LIMIT $top_k
+        """
+        t0 = time.time()
+        try:
+            with self.driver.session() as session:
+                records = session.run(cypher_two_hop, entity_name=entity_name, top_k=top_k)
+                for rec in records:
+                    path_text = f"{rec['src']} --[{rec['rel1']}]--> {rec['mid_node']} --[{rec['rel2']}]--> {rec['target_node']}"
+                    ev = Evidence(
+                        evidence=path_text,
+                        score=0.60,
+                        path=[path_text],
+                        retriever="graph_retriever_two_hop",
+                        latency=time.time() - t0,
+                        document_id="",
+                        chunk_id="graph_two_hop",
+                        source_url="",
+                        source_name=rec["src"],
+                        source_category="",
+                        source_region="",
+                        source_org="",
+                        retrieved_at=datetime.now().isoformat(),
+                        source_batch="neo4j_2hop"
+                    )
+                    res.append(ev)
+        except Exception as e:
+            print(f"[WARN] two‑hop查询异常:{e}")
+        return res
+
+    def close(self):
+        if self.driver:
+            self.driver.close()
 
 if __name__ == "__main__":
     gr = GraphRetriever()
-    if gr.driver is not None:
-        try:
-            with gr.driver.session() as s:
-                cnt_rec = s.run("MATCH (h:InheritProject) RETURN count(h) AS cnt").single()
-                print(f"库中InheritProject节点总数：{cnt_rec['cnt']}")
-            out = gr.retrieve(query="哭嫁歌", context=None)
-            print("graph检索结果：")
-            for item in out:
-                print(item)
-            # 简单测试一跳检索
-            hop_out = gr._one_hop_retrieve(entity_name="朝鲜族农乐舞（象帽舞）", top_k=3)
-            print("\none‑hop一跳检索结果：")
-            for h in hop_out:
-                print(h)
-        except Exception as err:
-            print(f"[WARN] 执行查询异常：{err}")
-    else:
-        print("[INFO] graph驱动未初始化，跳过数据库测试")
+    query_text = "朝鲜族农乐舞（象帽舞）"
+    # ✔对外API：retrieve(字符串query, context)，基类内部自己构造RetrievalRequest
+    node_res = gr.retrieve(query_text, context=None)
+    print("\n==== 节点检索结果 ====")
+    for item in node_res:
+        print(item)
+
+    one_hop_out = gr._one_hop_retrieve(entity_name="朝鲜族农乐舞（象帽舞）", top_k=4)
+    print("\n==== one‑hop一跳检索结果 ====")
+    for item in one_hop_out:
+        print(item)
+
+    two_hop_out = gr._two_hop_retrieve(entity_name="朝鲜族农乐舞（象帽舞）", top_k=4)
+    print("\n==== two‑hop两跳检索结果 ====")
+    for item in two_hop_out:
+        print(item)
+
     gr.close()

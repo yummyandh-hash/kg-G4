@@ -30,7 +30,7 @@ def run_pipeline(chunks_path: str | Path, output_dir: str | Path) -> dict:
     )
     export_json(result, out_dir)
     export_graph_data(result, out_dir)
-    export_cypher(result, out_dir)
+    export_cypher(result, out_dir, include_provenance=False)
     quality = compute_quality(result)
     (out_dir / "quality_report.json").write_text(
         json.dumps(quality, ensure_ascii=False, indent=2),

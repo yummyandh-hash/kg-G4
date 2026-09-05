@@ -2,13 +2,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
 
-
 @dataclass
 class RetrievalRequest:
     query: str
     top_k: int = 5
     context: Optional[str] = None  # 新增context字段，对齐A的入参
-
 
 @dataclass
 class Evidence:

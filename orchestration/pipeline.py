@@ -3,6 +3,10 @@ from time import perf_counter
 from typing import Dict
 
 from orchestration.adaptive_router import AdaptiveRouter
+from orchestration.answer_generator import (
+    AnswerGenerator,
+    EvidenceAnswerGenerator,
+)
 from orchestration.complexity_scorer import ComplexityScorer
 from orchestration.models import (
     AnswerResponse,
@@ -22,9 +26,11 @@ class OrchestrationPipeline:
         self,
         retrievers: Dict[str, Retriever],
         top_k: int = 5,
+        answer_generator: AnswerGenerator | None = None,
     ):
         self.retrievers = retrievers
         self.top_k = top_k
+        self.answer_generator = answer_generator or EvidenceAnswerGenerator()
 
         self.query_analyzer = QueryAnalyzer()
         self.complexity_scorer = ComplexityScorer()
@@ -69,6 +75,10 @@ class OrchestrationPipeline:
         evidences = retriever.retrieve(query, context)
         retrieval_time = perf_counter() - retrieval_start
 
+        generation_start = perf_counter()
+        generation = self.answer_generator.generate(query, evidences)
+        generation_time = perf_counter() - generation_start
+
         paths = [
             evidence.relation_path
             for evidence in evidences
@@ -77,16 +87,22 @@ class OrchestrationPipeline:
 
         sources = list(
             dict.fromkeys(
-                evidence.source_url
+                evidence.source_url or evidence.source_id
                 for evidence in evidences
-                if evidence.source_url
+                if evidence.source_url or evidence.source_id
             )
         )
 
         total_time = perf_counter() - total_start
+        timing = {
+            "retrieval": round(retrieval_time, 6),
+            "total": round(total_time, 6),
+        }
+        if generation.used_llm:
+            timing["generation"] = round(generation_time, 6)
 
         return AnswerResponse(
-            answer="",
+            answer=generation.answer,
             query_type=query_type,
             complexity_score=complexity_score,
             selected_route=decision.selected_route,
@@ -94,8 +110,5 @@ class OrchestrationPipeline:
             evidences=evidences,
             paths=paths,
             sources=sources,
-            timing={
-                "retrieval": round(retrieval_time, 6),
-                "total": round(total_time, 6),
-            },
+            timing=timing,
         )

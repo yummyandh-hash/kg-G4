@@ -7,14 +7,19 @@ from dotenv import load_dotenv
 
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
 
-load_dotenv()
+# 定位到项目根目录，加载根目录下的.env
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 class GraphRetriever(BaseRetriever):
     def __init__(self):
+        """从项目根目录.env读取Neo4j连接信息，禁止硬编码凭证"""
         self.uri = os.getenv("NEO4J_URI")
         self.user = os.getenv("NEO4J_USER")
         self.password = os.getenv("NEO4J_PASSWORD")
+        if not self.uri or not self.user or not self.password:
+            raise RuntimeError("请检查项目根目录的.env文件，Neo4j连接参数不能为空")
         self.driver: Driver | None = None
         self._connect()
 
@@ -28,33 +33,37 @@ class GraphRetriever(BaseRetriever):
             self.driver = None
 
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
-        """基础节点文本检索，根据query匹配InheritProject节点名称"""
         evidences: List[Evidence] = []
         if self.driver is None:
             return evidences
 
-        cypher = """
+        # 1. 基础节点检索：名称模糊匹配
+        cypher_node = """
         MATCH (n:InheritProject)
         WHERE toLower(n.name) CONTAINS toLower($q_str)
         RETURN n.name as name, n.attributes_json as attr, n.entity_id as eid
         LIMIT $top_k
         """
         t0 = time.time()
+        node_hit_entities: List[str] = []
         try:
             with self.driver.session() as session:
-                records = session.run(cypher, q_str=request.query, top_k=request.top_k)
+                records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
-                    content = f"项目名称：{rec['name']}，属性信息：{rec['attr']}"
+                    name = rec["name"]
+                    attr = rec["attr"]
+                    eid = rec["eid"]
+                    content = f"项目名称：{name}，属性信息：{attr}"
                     ev = Evidence(
                         evidence=content,
                         score=0.80,
                         path=[],
                         retriever="graph_retriever",
                         latency=time.time() - t0,
-                        document_id=rec["eid"] or "",
+                        document_id=eid or "",
                         chunk_id="graph_node",
                         source_url="",
-                        source_name=rec["name"],
+                        source_name=name,
                         source_category="",
                         source_region="",
                         source_org="",
@@ -62,16 +71,32 @@ class GraphRetriever(BaseRetriever):
                         source_batch="neo4j_node"
                     )
                     evidences.append(ev)
+                    node_hit_entities.append(name)
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
+
+        # 2. 根据context的query_type，决定是否追加一跳/两跳关系证据
+        query_type = None
+        if hasattr(request, "context") and request.context is not None:
+            query_type = getattr(request.context, "query_type", None)
+
+        if query_type in ("relation", "relation_2hop") and len(node_hit_entities) > 0:
+            entity = node_hit_entities[0]  # 取第一个命中实体做关系查询
+            # 追加one‑hop
+            hop1_list = self._one_hop_retrieve(entity, top_k=4)
+            evidences.extend(hop1_list)
+            # 如果是relation_2hop，追加two‑hop
+            if query_type == "relation_2hop":
+                hop2_list = self._two_hop_retrieve(entity, top_k=4)
+                evidences.extend(hop2_list)
+
         return evidences
 
     def _one_hop_retrieve(self, entity_name: str, top_k: int = 4) -> List[Evidence]:
-        """一跳关系检索"""
         res: List[Evidence] = []
         if self.driver is None:
             return res
-        cypher_one_hop = """
+        cypher_onehop = """
         MATCH (h:InheritProject {name:$entity_name})-[r]-(neigh)
         RETURN h.name AS src, type(r) AS rel, neigh.name AS target
         LIMIT $top_k
@@ -79,7 +104,7 @@ class GraphRetriever(BaseRetriever):
         t0 = time.time()
         try:
             with self.driver.session() as session:
-                records = session.run(cypher_one_hop, entity_name=entity_name, top_k=top_k)
+                records = session.run(cypher_onehop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
                     path_text = f"{rec['src']} --[{rec['rel']}]--> {rec['target']}"
                     ev = Evidence(
@@ -100,25 +125,24 @@ class GraphRetriever(BaseRetriever):
                     )
                     res.append(ev)
         except Exception as e:
-            print(f"[WARN] one‑hop查询异常:{e}")
+            print(f"[WARN] one‑hop query error: {e}")
         return res
 
     def _two_hop_retrieve(self, entity_name: str, top_k: int = 4) -> List[Evidence]:
-        """两跳路径检索原型 Stage1，输出标准Evidence"""
         res: List[Evidence] = []
         if self.driver is None:
             return res
-        cypher_two_hop = """
+        cypher_twohop = """
         MATCH (h:InheritProject {name:$entity_name})-[r1]-(mid)-[r2]-(neigh2)
-        RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target_node
+        RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target
         LIMIT $top_k
         """
         t0 = time.time()
         try:
             with self.driver.session() as session:
-                records = session.run(cypher_two_hop, entity_name=entity_name, top_k=top_k)
+                records = session.run(cypher_twohop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    path_text = f"{rec['src']} --[{rec['rel1']}]--> {rec['mid_node']} --[{rec['rel2']}]--> {rec['target_node']}"
+                    path_text = f"{rec['src']} --[{rec['rel1']}]--> {rec['mid_node']} --[{rec['rel2']}]--> {rec['target']}"
                     ev = Evidence(
                         evidence=path_text,
                         score=0.60,
@@ -137,30 +161,34 @@ class GraphRetriever(BaseRetriever):
                     )
                     res.append(ev)
         except Exception as e:
-            print(f"[WARN] two‑hop查询异常:{e}")
+            print(f"[WARN] two‑hop query error: {e}")
         return res
 
     def close(self):
         if self.driver:
             self.driver.close()
 
+
 if __name__ == "__main__":
     gr = GraphRetriever()
     query_text = "朝鲜族农乐舞（象帽舞）"
-    # ✔对外API：retrieve(字符串query, context)，基类内部自己构造RetrievalRequest
+
+    # 测试普通查询（仅节点检索）
+    print("=====【普通查询，无query_type】=====")
     node_res = gr.retrieve(query_text, context=None)
-    print("\n==== 节点检索结果 ====")
     for item in node_res:
         print(item)
 
-    one_hop_out = gr._one_hop_retrieve(entity_name="朝鲜族农乐舞（象帽舞）", top_k=4)
-    print("\n==== one‑hop一跳检索结果 ====")
-    for item in one_hop_out:
-        print(item)
+    # 模拟A传入context.query_type="relation"，触发一跳
+    from .base_retriever import RetrievalRequest
 
-    two_hop_out = gr._two_hop_retrieve(entity_name="朝鲜族农乐舞（象帽舞）", top_k=4)
-    print("\n==== two‑hop两跳检索结果 ====")
-    for item in two_hop_out:
+    class MockContext:
+        query_type = "relation"
+
+    req_rel = RetrievalRequest(query=query_text, top_k=4, context=MockContext())
+    print("\n=====【query_type=relation，触发节点+one‑hop】=====")
+    rel_res = gr.retrieve(req_rel.query, context=req_rel.context)
+    for item in rel_res:
         print(item)
 
     gr.close()

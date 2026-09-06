@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import List
 from neo4j import GraphDatabase, Driver
 from dotenv import load_dotenv
-
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
 
 # 定位到项目根目录，加载根目录下的.env
@@ -37,41 +36,49 @@ class GraphRetriever(BaseRetriever):
         if self.driver is None:
             return evidences
 
-        # 1. 基础节点检索：名称模糊匹配
+        # 1.双向contains：节点名包含query OR query包含节点名，解决长自然问句内嵌实体的场景
         cypher_node = """
         MATCH (n:InheritProject)
-        WHERE toLower(n.name) CONTAINS toLower($q_str)
+        WHERE toLower(n.name) CONTAINS toLower($q_str) OR toLower($q_str) CONTAINS toLower(n.name)
         RETURN n.name as name, n.attributes_json as attr, n.entity_id as eid
         LIMIT $top_k
         """
         t0 = time.time()
         node_hit_entities: List[str] = []
+        hit_records = []
         try:
             with self.driver.session() as session:
                 records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
-                    name = rec["name"]
-                    attr = rec["attr"]
-                    eid = rec["eid"]
-                    content = f"项目名称：{name}，属性信息：{attr}"
-                    ev = Evidence(
-                        evidence=content,
-                        score=0.80,
-                        path=[],
-                        retriever="graph_retriever",
-                        latency=time.time() - t0,
-                        document_id=eid or "",
-                        chunk_id="graph_node",
-                        source_url="",
-                        source_name=name,
-                        source_category="",
-                        source_region="",
-                        source_org="",
-                        retrieved_at=datetime.now().isoformat(),
-                        source_batch="neo4j_node"
-                    )
-                    evidences.append(ev)
-                    node_hit_entities.append(name)
+                    hit_records.append({"name": rec["name"], "attr": rec["attr"], "eid": rec["eid"]})
+
+            # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
+            hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
+
+            for rec in hit_records:
+                name = rec["name"]
+                attr = rec["attr"]
+                eid = rec["eid"]
+                content = f"项目名称：{name}，属性信息：{attr}"
+                ev = Evidence(
+                    evidence=content,
+                    score=0.80,
+                    path=[],
+                    retriever="graph_retriever",
+                    latency=time.time() - t0,
+                    document_id=eid or "",
+                    chunk_id="graph_node",
+                    source_url="",
+                    source_name=name,
+                    source_category="",
+                    source_region="",
+                    source_org="",
+                    retrieved_at=datetime.now().isoformat(),
+                    source_batch="neo4j_node"
+                )
+                evidences.append(ev)
+                node_hit_entities.append(name)
+
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
 
@@ -81,8 +88,7 @@ class GraphRetriever(BaseRetriever):
             query_type = getattr(request.context, "query_type", None)
 
         if query_type in ("relation", "relation_2hop") and len(node_hit_entities) > 0:
-            entity = node_hit_entities[0]  # 取第一个命中实体做关系查询
-            # 追加one‑hop
+            entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
             hop1_list = self._one_hop_retrieve(entity, top_k=4)
             evidences.extend(hop1_list)
             # 如果是relation_2hop，追加two‑hop
@@ -189,6 +195,17 @@ if __name__ == "__main__":
     print("\n=====【query_type=relation，触发节点+one‑hop】=====")
     rel_res = gr.retrieve(req_rel.query, context=req_rel.context)
     for item in rel_res:
+        print(item)
+
+    # 模拟完整自然语言问句测试
+    print("\n=====【长自然语言问句 + query_type=relation】 =====")
+    req_long = RetrievalRequest(
+        query="朝鲜族农乐舞（象帽舞）和吉林省延边朝鲜族自治州有什么关系？",
+        top_k=4,
+        context=MockContext()
+    )
+    long_res = gr.retrieve(req_long.query, context=req_long.context)
+    for item in long_res:
         print(item)
 
     gr.close()

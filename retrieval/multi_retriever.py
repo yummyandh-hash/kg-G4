@@ -16,7 +16,6 @@ class MultiRetriever(BaseRetriever):
     ):
         self.enable_vector = enable_vector
         self.enable_graph = enable_graph
-
         if self.enable_vector:
             self.vector_retriever = VectorRetriever(chunks_file=chunks_file)
         if self.enable_graph:
@@ -24,28 +23,33 @@ class MultiRetriever(BaseRetriever):
 
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         all_evidences: List[Evidence] = []
-
-        # 1.向量检索
+        # 1.向量检索，传入 query, context, top_k
         if self.enable_vector:
-            vec_res = self.vector_retriever.retrieve(request.query, request.context)
+            vec_res = self.vector_retriever.retrieve(
+                request.query,
+                context=request.context,
+                top_k=request.top_k
+            )
             all_evidences.extend(vec_res)
-
-        # 2.图节点文本检索
+        # 2.图节点文本检索，传入 query, context, top_k
         if self.enable_graph:
-            graph_res = self.graph_retriever.retrieve(request.query, request.context)
+            graph_res = self.graph_retriever.retrieve(
+                request.query,
+                context=request.context,
+                top_k=request.top_k
+            )
             all_evidences.extend(graph_res)
 
         # 简单按分数降序排序，分数越高越靠前
         all_evidences.sort(key=lambda x: x.score, reverse=True)
-
         # 截断到top_k
         return all_evidences[:request.top_k]
 
 
 if __name__ == "__main__":
-    # 自测demo
+    # 自测demo，补全top_k
     retriever = MultiRetriever()
-    results = retriever.retrieve(query="苏绣", context=None)
+    results = retriever.retrieve(query="苏绣", context=None, top_k=5)
     print(f"混合检索共返回 {len(results)} 条\n")
     for idx, ev in enumerate(results):
         print(f"---{idx+1} | score:{ev.score:.4f} | retriever:{ev.retriever}---")

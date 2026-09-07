@@ -1,11 +1,9 @@
 import json
 import time
 from typing import List
-
 import numpy as np
 from sentence_transformers import SentenceTransformer
-
-from .base_retriever import BaseRetriever, Evidence, RetrievalRequest
+from .base_retriever import BaseRetriever, Evidence, RetrievalRequest, RetrievalContext
 
 
 class VectorRetriever(BaseRetriever):
@@ -44,35 +42,26 @@ class VectorRetriever(BaseRetriever):
             "请介绍",
             "请问",
         )
-
         processed = query.strip()
-
         for suffix in suffixes:
             if processed.endswith(suffix):
                 processed = processed[:-len(suffix)].strip()
                 break
-
         return processed or query.strip()
 
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         t0 = time.time()
-
         processed_query = self._preprocess_query(request.query)
-
         q_emb = self.model.encode(
             processed_query,
             normalize_embeddings=True,
         )
-
         scores = np.dot(self.embeddings, q_emb)
         top_idx = np.argsort(scores)[::-1][: request.top_k]
         latency = time.time() - t0
-
         res = []
-
         for idx in top_idx:
             item = self.chunks[idx]
-
             res.append(
                 Evidence(
                     evidence=item["content"],
@@ -91,26 +80,20 @@ class VectorRetriever(BaseRetriever):
                     source_batch=item["source_batch"],
                 )
             )
-
         return res
 
 
 if __name__ == "__main__":
     retriever = VectorRetriever()
-
     query = "朝鲜族农乐舞（象帽舞）是什么？"
-
     print(f"原始查询：{query}")
     print(f"预处理后：{retriever._preprocess_query(query)}\n")
-
     out = retriever.retrieve(
         query=query,
         context=None,
         top_k=5,
     )
-
     print(f"共返回 {len(out)} 条结果\n")
-
     for i, ev in enumerate(out):
         print(f"--- 第 {i + 1} 条 分数: {ev.score:.4f} ---")
         print(f"文本: {ev.evidence[:200]}")

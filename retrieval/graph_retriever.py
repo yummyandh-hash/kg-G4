@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List
 from neo4j import GraphDatabase, Driver
 from dotenv import load_dotenv
-from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
+from .base_retriever import BaseRetriever, RetrievalRequest, Evidence, RetrievalContext
 
 # 定位到项目根目录，加载根目录下的.env
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -54,7 +54,6 @@ class GraphRetriever(BaseRetriever):
 
             # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
             hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
-
             for rec in hit_records:
                 name = rec["name"]
                 attr = rec["attr"]
@@ -78,14 +77,13 @@ class GraphRetriever(BaseRetriever):
                 )
                 evidences.append(ev)
                 node_hit_entities.append(name)
-
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
 
         # 2. 根据context的query_type，决定是否追加一跳/两跳关系证据
         query_type = None
-        if hasattr(request, "context") and request.context is not None:
-            query_type = getattr(request.context, "query_type", None)
+        if request.context is not None:
+            query_type = request.context.query_type
 
         if query_type in ("relation", "relation_2hop") and len(node_hit_entities) > 0:
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
@@ -181,30 +179,25 @@ if __name__ == "__main__":
 
     # 测试普通查询（仅节点检索）
     print("=====【普通查询，无query_type】=====")
-    node_res = gr.retrieve(query_text, context=None)
+    node_res = gr.retrieve(query_text, context=None, top_k=4)
     for item in node_res:
         print(item)
 
     # 模拟A传入context.query_type="relation"，触发一跳
-    from .base_retriever import RetrievalRequest
-
-    class MockContext:
-        query_type = "relation"
-
-    req_rel = RetrievalRequest(query=query_text, top_k=4, context=MockContext())
+    ctx_rel = RetrievalContext(query_type="relation")
     print("\n=====【query_type=relation，触发节点+one‑hop】=====")
-    rel_res = gr.retrieve(req_rel.query, context=req_rel.context)
+    rel_res = gr.retrieve(query_text, context=ctx_rel, top_k=4)
     for item in rel_res:
         print(item)
 
     # 模拟完整自然语言问句测试
     print("\n=====【长自然语言问句 + query_type=relation】 =====")
-    req_long = RetrievalRequest(
+    ctx_long = RetrievalContext(query_type="relation")
+    long_res = gr.retrieve(
         query="朝鲜族农乐舞（象帽舞）和吉林省延边朝鲜族自治州有什么关系？",
-        top_k=4,
-        context=MockContext()
+        context=ctx_long,
+        top_k=4
     )
-    long_res = gr.retrieve(req_long.query, context=req_long.context)
     for item in long_res:
         print(item)
 

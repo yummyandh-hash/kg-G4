@@ -1,25 +1,18 @@
 import time
-import json
-import os
-from datetime import datetime
+import re
 from typing import List
-import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
 
 
 class VectorRetriever(BaseRetriever):
-    def __init__(self, index_path: str = "data/vector.index", chunk_jsonl_path: str = "data/chunks/chunks.jsonl"):
-        self.index_path = index_path
-        self.chunk_jsonl_path = chunk_jsonl_path
+    def __init__(self):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.index: faiss.Index | None = None
-        self.chunks: list[dict] = []
-        self._load_index_and_chunks()
+        self.chunks: List[dict] = []
 
     def _preprocess_query(self, q: str) -> str:
-        """剥离中文常见疑问后缀，仅用于送入embedding，不修改原始request.query"""
+        """剥离中文常见疑问后缀，仅用于embedding输入，原始request.query保持不变"""
         suffixes = ["是什么？", "是什么", "？", "介绍一下", "简述", "请介绍", "请问"]
         out = q.strip()
         for s in suffixes:
@@ -27,51 +20,41 @@ class VectorRetriever(BaseRetriever):
                 out = out[:-len(s)].strip()
         return out
 
-    def _load_index_and_chunks(self):
-        if os.path.exists(self.index_path):
-            self.index = faiss.read_index(self.index_path)
-        else:
-            raise FileNotFoundError(f"faiss索引不存在：{self.index_path}，请先执行建索引")
-
-        self.chunks = []
-        with open(self.chunk_jsonl_path, "r", encoding="utf-8") as f:
-            for line in f:
-                self.chunks.append(json.loads(line))
-
-    def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
-        evidences: List[Evidence] = []
-        if self.index is None or len(self.chunks) == 0:
-            return evidences
-
+    def retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         t0 = time.time()
-        # 使用预处理后的文本做embedding，原始request.query保持不变
         proc_q = self._preprocess_query(request.query)
-        query_embedding = self.model.encode(proc_q, convert_to_numpy=True)
-        query_embedding = np.expand_dims(query_embedding, axis=0).astype(np.float32)
+        top_k = request.top_k
 
-        scores, indices = self.index.search(query_embedding, k=request.top_k)
-        scores = scores[0]
-        indices = indices[0]
+        if not self.chunks:
+            return []
 
-        for score, idx in zip(scores, indices):
-            if idx < 0 or idx >= len(self.chunks):
-                continue
-            chunk = self.chunks[idx]
+        q_emb = self.model.encode(proc_q, convert_to_numpy=True)
+        score_list = []
+        for chunk in self.chunks:
+            emb = chunk["embedding"]
+            sim = float(np.dot(q_emb, emb))
+            score_list.append((sim, chunk))
+
+        score_list.sort(key=lambda x: x[0], reverse=True)
+        select = score_list[:top_k]
+
+        evidences: List[Evidence] = []
+        for score, chunk in select:
             ev = Evidence(
                 evidence=chunk.get("content", ""),
-                score=float(score),
-                path=[],
+                score=score,
+                path=None,
                 retriever="vector_retriever",
                 latency=time.time() - t0,
-                document_id=chunk.get("chunk_id", ""),
+                document_id=chunk.get("document_id", ""),
                 chunk_id=chunk.get("chunk_id", ""),
                 source_url=chunk.get("source_url", ""),
                 source_name=chunk.get("source_name", ""),
-                source_category="",
-                source_region="",
-                source_org="",
-                retrieved_at=datetime.now().isoformat(),
-                source_batch="vector_chunk"
+                source_category=chunk.get("source_category", ""),
+                source_region=chunk.get("source_region", ""),
+                source_org=chunk.get("source_org", ""),
+                retrieved_at=str(time.time()),
+                source_batch=chunk.get("source_batch", "")
             )
             evidences.append(ev)
         return evidences
@@ -79,18 +62,11 @@ class VectorRetriever(BaseRetriever):
 
 if __name__ == "__main__":
     vr = VectorRetriever()
-
-    # 测试1：实体短名称
-    print("=====【测试1：实体短名称】=====")
     from .base_retriever import RetrievalRequest
-    req1 = RetrievalRequest(query="朝鲜族农乐舞（象帽舞）", top_k=5, context=None)
-    res1 = vr.retrieve(req1.query, context=req1.context)
-    for item in res1:
-        print(f"score={item.score:.4f} | {item.evidence[:100]}")
-
-    # 测试2：带中文问句后缀（本次重点验证）
-    print("\n=====【测试2：带问句后缀：朝鲜族农乐舞（象帽舞）是什么？】=====")
-    req2 = RetrievalRequest(query="朝鲜族农乐舞（象帽舞）是什么？", top_k=5, context=None)
-    res2 = vr.retrieve(req2.query, context=req2.context)
-    for item in res2:
-        print(f"score={item.score:.4f} | {item.evidence[:100]}")
+    print("=====【测试预处理逻辑】=====")
+    test_q1 = "朝鲜族农乐舞（象帽舞）"
+    test_q2 = "朝鲜族农乐舞（象帽舞）是什么？"
+    print(f"原始：{test_q2} -> 处理后：{vr._preprocess_query(test_q2)}")
+    req = RetrievalRequest(query=test_q2, top_k=5)
+    res = vr.retrieve(req)
+    print(f"证据返回数量 {len(res)}")

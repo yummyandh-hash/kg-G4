@@ -20,6 +20,10 @@ class VectorRetriever(BaseRetriever):
                 out = out[:-len(s)].strip()
         return out
 
+    def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
+        """基类要求的抽象方法，实际业务逻辑在retrieve"""
+        return self.retrieve(request)
+
     def retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         t0 = time.time()
         proc_q = self._preprocess_query(request.query)
@@ -63,10 +67,12 @@ class VectorRetriever(BaseRetriever):
 if __name__ == "__main__":
     vr = VectorRetriever()
     from .base_retriever import RetrievalRequest
-    print("=====【测试预处理逻辑】=====")
-    test_q1 = "朝鲜族农乐舞（象帽舞）"
-    test_q2 = "朝鲜族农乐舞（象帽舞）是什么？"
-    print(f"原始：{test_q2} -> 处理后：{vr._preprocess_query(test_q2)}")
-    req = RetrievalRequest(query=test_q2, top_k=5)
-    res = vr.retrieve(req)
-    print(f"证据返回数量 {len(res)}")
+    print("=====仅测试query预处理函数=====")
+    test_cases = [
+        "朝鲜族农乐舞（象帽舞）是什么？",
+        "朝鲜族农乐舞（象帽舞）是什么",
+        "朝鲜族农乐舞（象帽舞）"
+    ]
+    for q in test_cases:
+        processed = vr._preprocess_query(q)
+        print(f"原始：{q!r} → 处理后：{processed!r}")

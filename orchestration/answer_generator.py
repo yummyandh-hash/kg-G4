@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
+from urllib.parse import urljoin
 
 import requests
+from dotenv import load_dotenv
 
 from orchestration.models import Evidence
 
@@ -44,7 +47,7 @@ class OpenAICompatibleAnswerGenerator:
         self,
         api_key: str,
         model: str,
-        base_url: str = "https://api.openai.com/v1/chat/completions",
+        base_url: str = "https://api.openai.com/v1",
         timeout: float = 30.0,
     ):
         self.api_key = api_key
@@ -52,22 +55,28 @@ class OpenAICompatibleAnswerGenerator:
         self.base_url = base_url
         self.timeout = timeout
 
+    @staticmethod
+    def _repo_root() -> Path:
+        return Path(__file__).resolve().parents[1]
+
     @classmethod
     def from_env(cls) -> "OpenAICompatibleAnswerGenerator | None":
+        load_dotenv(cls._repo_root() / ".env", override=False)
         api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
         model = os.getenv("LLM_MODEL", "gpt-4o-mini")
-        base_url = os.getenv(
-            "LLM_BASE_URL",
-            "https://api.openai.com/v1/chat/completions",
-        )
+        base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
         if not api_key:
             return None
         return cls(api_key=api_key, model=model, base_url=base_url)
 
+    def _chat_completions_url(self) -> str:
+        root = self.base_url.rstrip("/") + "/"
+        return urljoin(root, "chat/completions")
+
     def generate(self, query: str, evidences: list[Evidence]) -> GenerationResult:
         prompt = build_prompt(query, evidences)
         response = requests.post(
-            self.base_url,
+            self._chat_completions_url(),
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",

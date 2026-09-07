@@ -1,78 +1,118 @@
+import json
 import time
-import re
 from typing import List
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from .base_retriever import BaseRetriever, RetrievalRequest, Evidence
+
+from .base_retriever import BaseRetriever, Evidence, RetrievalRequest
 
 
 class VectorRetriever(BaseRetriever):
-    def __init__(self):
+    def __init__(self, chunks_file: str = "data/chunks/chunks.jsonl"):
+        self.chunks_file = chunks_file
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.chunks: List[dict] = []
+        self.chunks = []
+        self.embeddings = None
+        self._load_chunks()
+        self._build_index()
 
-    def _preprocess_query(self, q: str) -> str:
-        """剥离中文常见疑问后缀，仅用于embedding输入，原始request.query保持不变"""
-        suffixes = ["是什么？", "是什么", "？", "介绍一下", "简述", "请介绍", "请问"]
-        out = q.strip()
-        for s in suffixes:
-            if out.endswith(s):
-                out = out[:-len(s)].strip()
-        return out
+    def _load_chunks(self):
+        with open(self.chunks_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                self.chunks.append(json.loads(line))
+
+    def _build_index(self):
+        texts = [item["content"] for item in self.chunks]
+        self.embeddings = self.model.encode(
+            texts,
+            normalize_embeddings=True,
+            show_progress_bar=True,
+        )
+
+    def _preprocess_query(self, query: str) -> str:
+        """裁剪常见中文疑问后缀，仅用于生成查询向量。"""
+        suffixes = (
+            "是什么？",
+            "是什么?",
+            "是什么",
+            "介绍一下",
+            "简单介绍",
+            "请介绍",
+            "请问",
+        )
+
+        processed = query.strip()
+
+        for suffix in suffixes:
+            if processed.endswith(suffix):
+                processed = processed[:-len(suffix)].strip()
+                break
+
+        return processed or query.strip()
 
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
-        """基类要求的抽象方法，实际业务逻辑在retrieve"""
-        return self.retrieve(request)
-
-    def retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         t0 = time.time()
-        proc_q = self._preprocess_query(request.query)
-        top_k = request.top_k
 
-        if not self.chunks:
-            return []
+        processed_query = self._preprocess_query(request.query)
 
-        q_emb = self.model.encode(proc_q, convert_to_numpy=True)
-        score_list = []
-        for chunk in self.chunks:
-            emb = chunk["embedding"]
-            sim = float(np.dot(q_emb, emb))
-            score_list.append((sim, chunk))
+        q_emb = self.model.encode(
+            processed_query,
+            normalize_embeddings=True,
+        )
 
-        score_list.sort(key=lambda x: x[0], reverse=True)
-        select = score_list[:top_k]
+        scores = np.dot(self.embeddings, q_emb)
+        top_idx = np.argsort(scores)[::-1][: request.top_k]
+        latency = time.time() - t0
 
-        evidences: List[Evidence] = []
-        for score, chunk in select:
-            ev = Evidence(
-                evidence=chunk.get("content", ""),
-                score=score,
-                path=None,
-                retriever="vector_retriever",
-                latency=time.time() - t0,
-                document_id=chunk.get("document_id", ""),
-                chunk_id=chunk.get("chunk_id", ""),
-                source_url=chunk.get("source_url", ""),
-                source_name=chunk.get("source_name", ""),
-                source_category=chunk.get("source_category", ""),
-                source_region=chunk.get("source_region", ""),
-                source_org=chunk.get("source_org", ""),
-                retrieved_at=str(time.time()),
-                source_batch=chunk.get("source_batch", "")
+        res = []
+
+        for idx in top_idx:
+            item = self.chunks[idx]
+
+            res.append(
+                Evidence(
+                    evidence=item["content"],
+                    score=float(scores[idx]),
+                    path=None,
+                    retriever="vector",
+                    latency=latency,
+                    document_id=item["document_id"],
+                    chunk_id=item["chunk_id"],
+                    source_url=item["source_url"],
+                    source_name=item["source_name"],
+                    source_category=item["source_category"],
+                    source_region=item["source_region"],
+                    source_org=item["source_org"],
+                    retrieved_at=item["retrieved_at"],
+                    source_batch=item["source_batch"],
+                )
             )
-            evidences.append(ev)
-        return evidences
+
+        return res
 
 
 if __name__ == "__main__":
-    vr = VectorRetriever()
-    from .base_retriever import RetrievalRequest
-    print("=====仅测试query预处理函数=====")
-    test_cases = [
-        "朝鲜族农乐舞（象帽舞）是什么？",
-        "朝鲜族农乐舞（象帽舞）是什么",
-        "朝鲜族农乐舞（象帽舞）"
-    ]
-    for q in test_cases:
-        processed = vr._preprocess_query(q)
-        print(f"原始：{q!r} → 处理后：{processed!r}")
+    retriever = VectorRetriever()
+
+    query = "朝鲜族农乐舞（象帽舞）是什么？"
+
+    print(f"原始查询：{query}")
+    print(f"预处理后：{retriever._preprocess_query(query)}\n")
+
+    out = retriever.retrieve(
+        query=query,
+        context=None,
+        top_k=5,
+    )
+
+    print(f"共返回 {len(out)} 条结果\n")
+
+    for i, ev in enumerate(out):
+        print(f"--- 第 {i + 1} 条 分数: {ev.score:.4f} ---")
+        print(f"文本: {ev.evidence[:200]}")
+        print(f"项目: {ev.source_name} | 地区: {ev.source_region}")
+        print(f"来源: {ev.source_url}\n")

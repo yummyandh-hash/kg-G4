@@ -1,0 +1,50 @@
+{
+  "entity_count": 6745,
+  "relation_count": 15405,
+  "deduped_entity_count": 6745,
+  "deduped_relation_count": 15405,
+  "duplicate_entity_count": 0,
+  "duplicate_relation_count": 0,
+  "isolated_entity_count": 0,
+  "entity_type_distribution": {
+    "InheritProject": 1749,
+    "Category": 6,
+    "Region": 1072,
+    "CulturalElement": 3869,
+    "ProtectionUnit": 49
+  },
+  "relation_type_distribution": {
+    "BELONGS_TO": 1749,
+    "LOCATED_IN": 1691,
+    "RELATED_TO": 11910,
+    "PROTECTED_BY": 55
+  },
+  "deduped_entity_type_distribution": {
+    "InheritProject": 1749,
+    "Category": 6,
+    "Region": 1072,
+    "CulturalElement": 3869,
+    "ProtectionUnit": 49
+  },
+  "deduped_relation_type_distribution": {
+    "BELONGS_TO": 1749,
+    "LOCATED_IN": 1691,
+    "RELATED_TO": 11910,
+    "PROTECTED_BY": 55
+  },
+  "warning_count": 0,
+  "risk_report": {
+    "region_as_protection_unit_count": 0,
+    "batch_as_category_count": 0,
+    "nonstandard_category_count": 0,
+    "cultural_fragment_count": 0,
+    "project_category_conflict_count": 0,
+    "project_raw_category_batch_count": 0,
+    "region_as_protection_unit_samples": [],
+    "batch_as_category_samples": [],
+    "nonstandard_category_samples": [],
+    "cultural_fragment_samples": [],
+    "project_category_conflict_samples": [],
+    "project_raw_category_batch_samples": []
+  }
+}

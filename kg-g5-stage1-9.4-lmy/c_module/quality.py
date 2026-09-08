@@ -7,7 +7,7 @@ from collections import Counter
 from .schemas import ExtractionResult
 from .graph_ops import deduplicate_result
 from .resolver import looks_like_protection_unit, looks_like_region, looks_like_batch
-from .extractor import SUPPORTED_HERITAGE_CATEGORIES
+from .extractor import SUPPORTED_HERITAGE_CATEGORIES, _looks_like_cultural_element
 
 
 def compute_quality(result: ExtractionResult) -> dict:
@@ -54,6 +54,9 @@ def _risk_report(result: ExtractionResult) -> dict:
     place_as_unit = []
     batch_as_category = []
     weird_categories = []
+    cultural_fragments = []
+    project_category_conflicts = []
+    project_raw_batch_values = []
     for entity in result.entities:
         if entity.entity_type == "ProtectionUnit" and looks_like_region(entity.name):
             place_as_unit.append(entity.name)
@@ -61,11 +64,32 @@ def _risk_report(result: ExtractionResult) -> dict:
             batch_as_category.append(entity.name)
         if entity.entity_type == "Category" and entity.name not in SUPPORTED_HERITAGE_CATEGORIES:
             weird_categories.append(entity.name)
+        if entity.entity_type == "CulturalElement" and not _looks_like_cultural_element(entity.name):
+            cultural_fragments.append(entity.name)
+        if entity.entity_type == "InheritProject":
+            heritage_category = str(entity.attributes.get("heritage_category") or "").strip()
+            raw_category_name = str(entity.attributes.get("raw_category_name") or "").strip()
+            if raw_category_name and looks_like_batch(raw_category_name):
+                project_raw_batch_values.append(f"{entity.name}: raw_category_name={raw_category_name}")
+            if (
+                heritage_category in SUPPORTED_HERITAGE_CATEGORIES
+                and raw_category_name in SUPPORTED_HERITAGE_CATEGORIES
+                and heritage_category != raw_category_name
+            ):
+                project_category_conflicts.append(
+                    f"{entity.name}: heritage_category={heritage_category}, raw_category_name={raw_category_name}"
+                )
     return {
         "region_as_protection_unit_count": len(place_as_unit),
         "batch_as_category_count": len(batch_as_category),
         "nonstandard_category_count": len(list(dict.fromkeys(weird_categories))),
+        "cultural_fragment_count": len(list(dict.fromkeys(cultural_fragments))),
+        "project_category_conflict_count": len(list(dict.fromkeys(project_category_conflicts))),
+        "project_raw_category_batch_count": len(list(dict.fromkeys(project_raw_batch_values))),
         "region_as_protection_unit_samples": list(dict.fromkeys(place_as_unit))[:20],
         "batch_as_category_samples": list(dict.fromkeys(batch_as_category))[:20],
         "nonstandard_category_samples": list(dict.fromkeys(weird_categories))[:20],
+        "cultural_fragment_samples": list(dict.fromkeys(cultural_fragments))[:20],
+        "project_category_conflict_samples": list(dict.fromkeys(project_category_conflicts))[:20],
+        "project_raw_category_batch_samples": list(dict.fromkeys(project_raw_batch_values))[:20],
     }

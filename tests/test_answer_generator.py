@@ -65,4 +65,5 @@ def test_from_env_loads_repo_env_and_builds_generator(monkeypatch):
     assert generator.base_url == "https://ai.tju.edu.cn/api/v3/"
     assert calls["override"] is False
     assert Path(calls["path"]).name == ".env"
-    assert Path(calls["path"]).parent.name == "kg-g5"
+    expected_env = Path(ag.__file__).resolve().parents[1] / ".env"
+    assert Path(calls["path"]).resolve() == expected_env.resolve()

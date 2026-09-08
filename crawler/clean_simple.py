@@ -45,17 +45,12 @@ def normalize(raw: dict, category_id: str, retrieved_at: str) -> dict:
     protect_unit = raw.get("protect_unit", "")
     content = raw.get("content", "")
 
-    # 从project_data中提取类别信息
-    project_data = raw.get("project_data", {})
-    actual_category = project_data.get("type", "第一批")  # 使用实际的type字段
-    actual_batch = project_data.get("batch", "2006")
-
     doc = {
         "name": name,
         "aliases": [],
         "number": project_num,
-        "category": actual_category,  # 使用实际的类别
-        "batch": actual_batch,       # 使用实际的批次
+        "category": "第一批",
+        "batch": "2006",
         "region": province,
         "region_norm": province.replace("省", "").replace("市", "").replace("县", ""),
         "org": unit or protect_unit,
@@ -64,8 +59,6 @@ def normalize(raw: dict, category_id: str, retrieved_at: str) -> dict:
         "document_id": "",
         "chunk_source_page": int(category_id),
         "retrieved_at": retrieved_at,
-        "heritage_category": actual_category,  # 添加heritage_category字段
-        "raw_category_name": actual_category  # 添加raw_category_name字段
     }
 
     # 生成document_id

@@ -1,4 +1,5 @@
 from dataclasses import asdict
+import os
 from typing import Any, Dict, List
 
 from fastapi import FastAPI
@@ -8,6 +9,20 @@ from pydantic import BaseModel
 from orchestration.context import build_context
 from orchestration.explainability import build_explanation
 from orchestration.service import QueryService
+
+
+def build_query_service() -> QueryService:
+    """Use the real Stage 1 pipeline when D dependencies are available."""
+    if os.getenv("KG_G5_STAGE1_REAL") != "1":
+        return QueryService()
+
+    try:
+        from orchestration.stage1 import build_stage1_query_service
+
+        return build_stage1_query_service()
+    except Exception as exc:
+        print(f"[WARN] Stage 1 real pipeline unavailable: {exc}")
+        return QueryService()
 
 
 app = FastAPI(
@@ -43,7 +58,7 @@ class SourceResponse(BaseModel):
     sources: List[str]
 
 
-query_service = QueryService()
+query_service = build_query_service()
 
 
 @app.get("/", response_class=HTMLResponse)

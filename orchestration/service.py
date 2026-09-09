@@ -117,12 +117,14 @@ class QueryService:
         router: Optional[Router] = None,
         retriever: Optional[Retriever] = None,
         answer_generator: Optional[AnswerGenerator] = None,
+        top_k: int = 5,
     ):
         self.router = router or MockRouter()
         self.retriever = retriever or MockRetriever()
         self.answer_generator = (
             answer_generator or MockAnswerGenerator()
         )
+        self.top_k = top_k
 
     def query(self, question: str) -> AnswerResponse:
         """执行一次完整查询。"""
@@ -138,7 +140,8 @@ class QueryService:
         context = RetrievalContext(
             query_type=decision.query_type,
             complexity_score=decision.complexity_score,
-            top_k=5,
+            top_k=self.top_k,
+            selected_route=decision.selected_route,
         )
 
         # 3. 检索
@@ -165,11 +168,11 @@ class QueryService:
         ]
 
         # 6. 整理来源
-        sources = [
-            evidence.source_id
+        sources = list(dict.fromkeys(
+            evidence.source_id or evidence.source_url
             for evidence in evidences
-            if evidence.source_id
-        ]
+            if evidence.source_id or evidence.source_url
+        ))
 
         # 7. 构造图谱节点
         node_map = {}
@@ -182,22 +185,21 @@ class QueryService:
                         label=entity_id,
                     )
 
+            for entity_id in _path_entities(evidence.relation_path):
+                if entity_id not in node_map:
+                    node_map[entity_id] = GraphNode(
+                        node_id=entity_id,
+                        label=entity_id,
+                    )
+
         graph_nodes = list(node_map.values())
 
         # 8. 构造图谱边
         edge_map = {}
 
         for path in paths:
-            if len(path) >= 3:
-                source = path[0]
-                relation = path[1]
-                target = path[2]
-
-                edge_key = (
-                    source,
-                    relation,
-                    target,
-                )
+            for source, relation, target in _path_edges(path):
+                edge_key = (source, relation, target)
 
                 if edge_key not in edge_map:
                     edge_map[edge_key] = GraphEdge(
@@ -229,3 +231,28 @@ class QueryService:
             graph_nodes=graph_nodes,
             graph_edges=graph_edges,
         )
+
+
+def _path_entities(path: List[str]) -> List[str]:
+    if len(path) < 3:
+        return []
+    return [
+        value
+        for index, value in enumerate(path)
+        if index % 2 == 0
+    ]
+
+
+def _path_edges(path: List[str]) -> List[tuple[str, str, str]]:
+    if len(path) < 3:
+        return []
+
+    edges = []
+
+    for index in range(0, len(path) - 2, 2):
+        source = path[index]
+        relation = path[index + 1]
+        target = path[index + 2]
+        edges.append((source, relation, target))
+
+    return edges

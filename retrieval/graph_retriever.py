@@ -1,13 +1,16 @@
 import time
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 from neo4j import GraphDatabase, Driver
 from dotenv import load_dotenv
 from .base_retriever import BaseRetriever, RetrievalRequest, Evidence, RetrievalContext
+
 # 定位到项目根目录，加载根目录下的.env
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+
 class GraphRetriever(BaseRetriever):
     def __init__(self):
         """从项目根目录.env读取Neo4j连接信息，禁止硬编码凭证
@@ -20,6 +23,7 @@ class GraphRetriever(BaseRetriever):
             raise RuntimeError("请检查项目根目录的.env文件，Neo4j连接参数不能为空")
         self.driver: Driver | None = None
         self._connect()
+
     def _connect(self):
         try:
             self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
@@ -28,10 +32,12 @@ class GraphRetriever(BaseRetriever):
         except Exception as e:
             print(f"[ERROR] Neo4j连接失败: {e}")
             self.driver = None
+
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         evidences: List[Evidence] = []
         if self.driver is None:
             return evidences
+
         # 1.双向contains：节点名包含query OR query包含节点名，解决长自然问句内嵌实体的场景
         cypher_node = """
         MATCH (n:InheritProject)
@@ -47,6 +53,7 @@ class GraphRetriever(BaseRetriever):
                 records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
                     hit_records.append({"name": rec["name"], "attr": rec["attr"], "eid": rec["eid"]})
+
             # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
             hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
             for rec in hit_records:
@@ -54,6 +61,7 @@ class GraphRetriever(BaseRetriever):
                 attr = rec["attr"]
                 eid = rec["eid"]
                 content = f"项目名称：{name}，属性信息：{attr}"
+
                 ev = Evidence(
                     evidence=content,
                     score=0.80,
@@ -68,16 +76,22 @@ class GraphRetriever(BaseRetriever):
                     source_region="",
                     source_org="",
                     retrieved_at=datetime.now().isoformat(),
-                    source_batch="neo4j_node"
+                    source_batch="neo4j_node",
+                    # =========新增：节点证据，entity_ids填当前节点id，relation_path为空=========
+                    entity_ids=[eid] if eid else None,
+                    relation_path=None
                 )
                 evidences.append(ev)
                 node_hit_entities.append(name)
+
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
+
         # 2. 根据context的query_type，决定是否追加一跳/两跳关系证据
         query_type = None
         if request.context is not None:
             query_type = request.context.query_type
+
         if query_type in ("relation", "relation_2hop") and len(node_hit_entities) > 0:
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
             hop1_list = self._one_hop_retrieve(entity, top_k=4)
@@ -95,9 +109,10 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
+
         cypher_onehop = """
         MATCH (h:InheritProject {name:$entity_name})-[r]-(neigh)
-        RETURN h.name AS src, type(r) AS rel, neigh.name AS target
+        RETURN h.name AS src, type(r) AS rel, neigh.name AS target, h.entity_id AS src_eid, neigh.entity_id AS target_eid
         LIMIT $top_k
         """
         t0 = time.time()
@@ -105,7 +120,24 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_onehop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    path_text = f"{rec['src']} --[{rec['rel']}]--> {rec['target']}"
+                    src = rec["src"]
+                    rel_type = rec["rel"]
+                    target = rec["target"]
+                    src_eid = rec["src_eid"]
+                    target_eid = rec["target_eid"]
+
+                    path_text = f"{src} --[{rel_type}]--> {target}"
+
+                    # ==========构造图谱渲染字段==========
+                    entity_ids = [src_eid, target_eid]
+                    relation_path: List[Dict] = [
+                        {
+                            "source": src_eid,
+                            "target": target_eid,
+                            "relation": rel_type
+                        }
+                    ]
+
                     ev = Evidence(
                         evidence=path_text,
                         score=0.70,
@@ -115,12 +147,14 @@ class GraphRetriever(BaseRetriever):
                         document_id="",
                         chunk_id="graph_one_hop",
                         source_url="",
-                        source_name=rec["src"],
+                        source_name=src,
                         source_category="",
                         source_region="",
                         source_org="",
                         retrieved_at=datetime.now().isoformat(),
-                        source_batch="neo4j_1hop"
+                        source_batch="neo4j_1hop",
+                        entity_ids=entity_ids,
+                        relation_path=relation_path
                     )
                     res.append(ev)
         except Exception as e:
@@ -131,9 +165,11 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
+
         cypher_twohop = """
         MATCH (h:InheritProject {name:$entity_name})-[r1]-(mid)-[r2]-(neigh2)
-        RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target
+        RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target,
+               h.entity_id AS src_eid, mid.entity_id AS mid_eid, neigh2.entity_id AS target_eid
         LIMIT $top_k
         """
         t0 = time.time()
@@ -141,7 +177,25 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_twohop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    path_text = f"{rec['src']} --[{rec['rel1']}]--> {rec['mid_node']} --[{rec['rel2']}]--> {rec['target']}"
+                    src = rec["src"]
+                    rel1 = rec["rel1"]
+                    mid_node = rec["mid_node"]
+                    rel2 = rec["rel2"]
+                    target = rec["target"]
+
+                    src_eid = rec["src_eid"]
+                    mid_eid = rec["mid_eid"]
+                    target_eid = rec["target_eid"]
+
+                    path_text = f"{src} --[{rel1}]--> {mid_node} --[{rel2}]--> {target}"
+
+                    # ==========两跳：三个节点id，两条关系==========
+                    entity_ids = [src_eid, mid_eid, target_eid]
+                    relation_path: List[Dict] = [
+                        {"source": src_eid, "target": mid_eid, "relation": rel1},
+                        {"source": mid_eid, "target": target_eid, "relation": rel2}
+                    ]
+
                     ev = Evidence(
                         evidence=path_text,
                         score=0.60,
@@ -151,12 +205,14 @@ class GraphRetriever(BaseRetriever):
                         document_id="",
                         chunk_id="graph_two_hop",
                         source_url="",
-                        source_name=rec["src"],
+                        source_name=src,
                         source_category="",
                         source_region="",
                         source_org="",
                         retrieved_at=datetime.now().isoformat(),
-                        source_batch="neo4j_2hop"
+                        source_batch="neo4j_2hop",
+                        entity_ids=entity_ids,
+                        relation_path=relation_path
                     )
                     res.append(ev)
         except Exception as e:
@@ -166,6 +222,7 @@ class GraphRetriever(BaseRetriever):
     def close(self):
         if self.driver:
             self.driver.close()
+
 
 if __name__ == "__main__":
     gr = GraphRetriever()

@@ -1,19 +1,16 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional
-
+from typing import List, Optional, Dict
 
 @dataclass
 class RetrievalContext:
     query_type: str
-
 
 @dataclass
 class RetrievalRequest:
     query: str
     top_k: int = 5
     context: Optional[RetrievalContext] = None
-
 
 @dataclass
 class Evidence:
@@ -31,7 +28,9 @@ class Evidence:
     source_org: str
     retrieved_at: str
     source_batch: str
-
+    # ↓↓↓ 新增：供E前端图谱渲染 ↓↓↓
+    entity_ids: Optional[List[str]] = None
+    relation_path: Optional[List[Dict]] = None
 
 class BaseRetriever(ABC):
     def retrieve(self, query: str, context: Optional[RetrievalContext] = None, top_k: int = 5) -> List[Evidence]:

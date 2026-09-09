@@ -34,9 +34,11 @@ class GraphRetriever(BaseRetriever):
             self.driver = None
 
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
-        evidences: List[Evidence] = []
+        node_evidences: List[Evidence] = []
+        relation_evidences: List[Evidence] = []
+        
         if self.driver is None:
-            return evidences
+            return []
 
         # 1.双向contains：节点名包含query OR query包含节点名，解决长自然问句内嵌实体的场景
         cypher_node = """
@@ -77,33 +79,35 @@ class GraphRetriever(BaseRetriever):
                     source_org="",
                     retrieved_at=datetime.now().isoformat(),
                     source_batch="neo4j_node",
-                    # =========新增：节点证据，entity_ids填当前节点id，relation_path为空=========
+                    # 节点证据，entity_ids填当前节点id，relation_path为空
                     entity_ids=[eid] if eid else None,
                     relation_path=None
                 )
-                evidences.append(ev)
+                node_evidences.append(ev)
                 node_hit_entities.append(name)
 
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
 
-        # 2. 根据context的query_type，决定是否追加一跳/两跳关系证据
-        query_type = None
-        if request.context is not None:
+        # 2. 决定是否追加一跳/两跳关系证据（兜底逻辑：如果不传 query_type 默认开启 relation）
+        query_type = "relation"
+        if request.context is not None and request.context.query_type:
             query_type = request.context.query_type
 
-        if query_type in ("relation", "relation_2hop") and len(node_hit_entities) > 0:
+        # 只要命中了节点，默认均去查询关系，确保前端拿到 relation_path 绘制关系边
+        if len(node_hit_entities) > 0:
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
-            hop1_list = self._one_hop_retrieve(entity, top_k=4)
-            evidences.extend(hop1_list)
-            # 如果是relation_2hop，追加two‑hop
-            if query_type == "relation_2hop":
-                hop2_list = self._two_hop_retrieve(entity, top_k=4)
-                evidences.extend(hop2_list)
+            hop1_list = self._one_hop_retrieve(entity, top_k=request.top_k)
+            relation_evidences.extend(hop1_list)
 
-        # top_k语义：最终返回Evidence总条数上限，节点+一跳/两跳合并后统一切断
-        evidences = evidences[:request.top_k]
-        return evidences
+            # 如果显式指定了 relation_2hop，追加 two-hop
+            if query_type == "relation_2hop":
+                hop2_list = self._two_hop_retrieve(entity, top_k=request.top_k)
+                relation_evidences.extend(hop2_list)
+
+        # 3. 结果融合与截断策略：优先保留关系边（带有 relation_path 的证据），后面补齐节点证据
+        final_evidences = relation_evidences + node_evidences
+        return final_evidences[:request.top_k]
 
     def _one_hop_retrieve(self, entity_name: str, top_k: int = 4) -> List[Evidence]:
         res: List[Evidence] = []
@@ -128,7 +132,7 @@ class GraphRetriever(BaseRetriever):
 
                     path_text = f"{src} --[{rel_type}]--> {target}"
 
-                    # ==========构造图谱渲染字段==========
+                    # 构造图谱渲染字段
                     entity_ids = [src_eid, target_eid]
                     relation_path: List[Dict] = [
                         {
@@ -189,7 +193,7 @@ class GraphRetriever(BaseRetriever):
 
                     path_text = f"{src} --[{rel1}]--> {mid_node} --[{rel2}]--> {target}"
 
-                    # ==========两跳：三个节点id，两条关系==========
+                    # 两跳：三个节点id，两条关系
                     entity_ids = [src_eid, mid_eid, target_eid]
                     relation_path: List[Dict] = [
                         {"source": src_eid, "target": mid_eid, "relation": rel1},
@@ -223,29 +227,33 @@ class GraphRetriever(BaseRetriever):
         if self.driver:
             self.driver.close()
 
-
 if __name__ == "__main__":
     gr = GraphRetriever()
-    query_text = "朝鲜族农乐舞（象帽舞）"
-    # 测试普通查询（仅节点检索）
-    print("=====【普通查询，无query_type】=====")
-    node_res = gr.retrieve(query_text, context=None, top_k=4)
-    for item in node_res:
-        print(item)
-    # 模拟A传入context.query_type="relation"，触发一跳
-    ctx_rel = RetrievalContext(query_type="relation")
-    print("\n=====【query_type=relation，触发节点+one‑hop】=====")
-    rel_res = gr.retrieve(query_text, context=ctx_rel, top_k=4)
-    for item in rel_res:
-        print(item)
-    # 模拟完整自然语言问句测试
-    print("\n=====【长自然语言问句 + query_type=relation】 =====")
+    # 测试 1：带 context (query_type="relation")
     ctx_long = RetrievalContext(query_type="relation")
     long_res = gr.retrieve(
         query="朝鲜族农乐舞（象帽舞）和吉林省延边朝鲜族自治州有什么关系？",
         context=ctx_long,
         top_k=4
     )
+    print("=== 测试 1：带 context 的返回结果 ===")
     for item in long_res:
-        print(item)
+        print("retriever:", item.retriever)
+        print("entity_ids:", item.entity_ids)
+        print("relation_path:", item.relation_path)
+        print("-" * 50)
+
+    # 测试 2：不带 context (context=None)，验证兜底覆盖效果
+    print("\n=== 测试 2：context=None 兜底测试 ===")
+    none_ctx_res = gr.retrieve(
+        query="朝鲜族农乐舞",
+        context=None,
+        top_k=4
+    )
+    for item in none_ctx_res:
+        print("retriever:", item.retriever)
+        print("entity_ids:", item.entity_ids)
+        print("relation_path:", item.relation_path)
+        print("-" * 50)
+
     gr.close()

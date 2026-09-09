@@ -163,24 +163,147 @@ def root():
           el.innerHTML=items.map((item,i)=>`<div class="${cls}">${formatter(item,i)}</div>`).join("");
         }
         function renderGraph(nodes,edges){
-          const canvas=document.getElementById("graphCanvas"),svg=document.getElementById("graphSvg"),empty=document.getElementById("graphEmpty"),status=document.getElementById("graphStatus");
+          const canvas=document.getElementById("graphCanvas"),
+                svg=document.getElementById("graphSvg"),
+                empty=document.getElementById("graphEmpty"),
+                status=document.getElementById("graphStatus");
+
           while(svg.firstChild)svg.removeChild(svg.firstChild);
-          if(!nodes||nodes.length===0){empty.style.display="block";status.textContent="暂无图谱";return}
-          empty.style.display="none";status.textContent=`${nodes.length} 个节点 · ${(edges||[]).length} 条关系`;
-          const width=canvas.clientWidth,height=canvas.clientHeight,cx=width/2,cy=height/2,r=Math.min(width,height)*.34,positions={};
-          nodes.forEach((node,i)=>{const a=-Math.PI/2+2*Math.PI*i/nodes.length;positions[node.id]={x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}});
-          (edges||[]).forEach(edge=>{
-            const s=positions[edge.source],t=positions[edge.target];if(!s||!t)return;
-            const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-            line.setAttribute("x1",s.x);line.setAttribute("y1",s.y);line.setAttribute("x2",t.x);line.setAttribute("y2",t.y);line.setAttribute("class","graph-edge");svg.appendChild(line);
-            const label=document.createElementNS("http://www.w3.org/2000/svg","text");
-            label.setAttribute("x",(s.x+t.x)/2);label.setAttribute("y",(s.y+t.y)/2-5);label.setAttribute("class","graph-edge-label");label.textContent=edge.relation||"";svg.appendChild(label);
+
+          if(!nodes||nodes.length===0){
+            empty.style.display="block";
+            status.textContent="暂无图谱";
+            return;
+          }
+
+          empty.style.display="none";
+          status.textContent=`${nodes.length} 个节点 · ${(edges||[]).length} 条关系`;
+
+          const width=canvas.clientWidth,
+                height=canvas.clientHeight,
+                cx=width/2,
+                cy=height/2,
+                r=Math.min(width,height)*.34,
+                positions={};
+
+          console.log("========== GRAPH DEBUG ==========");
+
+          console.log("NODE IDS:");
+          nodes.forEach(function(n) {
+            console.log(
+              "id:", n.node_id,
+              "label:", n.label
+            );
           });
+
+          console.log("EDGE IDS:");
+          (edges || []).forEach(function(e) {
+            console.log(
+              "source:", e.source,
+              "target:", e.target,
+              "relation:", e.relation
+            );
+          });
+
+          console.log("=================================");
+
+          // ==============================
+          // 1. 给每个节点建立位置
+          // ==============================
+          nodes.forEach((node,i)=>{
+            const a=-Math.PI/2+2*Math.PI*i/nodes.length;
+
+            positions[node.node_id]={
+              x:cx+r*Math.cos(a),
+              y:cy+r*Math.sin(a)
+            };
+          });
+
+          // ==============================
+          // 2. 绘制关系
+          // ==============================
+          (edges||[]).forEach(edge=>{
+
+            const s=positions[edge.source];
+            const t=positions[edge.target];
+
+            if(!s || !t){
+              console.warn(
+                "Graph edge endpoint not found:",
+                edge,
+                "source exists:",
+                !!s,
+                "target exists:",
+                !!t
+              );
+              return;
+            }
+
+            const line=document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line"
+            );
+
+            line.setAttribute("x1",s.x);
+            line.setAttribute("y1",s.y);
+            line.setAttribute("x2",t.x);
+            line.setAttribute("y2",t.y);
+            line.setAttribute("class","graph-edge");
+
+            svg.appendChild(line);
+
+            const label=document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            );
+
+            label.setAttribute("x",(s.x+t.x)/2);
+            label.setAttribute("y",(s.y+t.y)/2-5);
+            label.setAttribute("class","graph-edge-label");
+            label.textContent=edge.relation||"";
+
+            svg.appendChild(label);
+          });
+
+          // ==============================
+          // 3. 绘制节点
+          // ==============================
           nodes.forEach(node=>{
-            const p=positions[node.id];if(!p)return;
-            const g=document.createElementNS("http://www.w3.org/2000/svg","g");g.setAttribute("class","graph-node");
-            const c=document.createElementNS("http://www.w3.org/2000/svg","circle");c.setAttribute("cx",p.x);c.setAttribute("cy",p.y);c.setAttribute("r",30);g.appendChild(c);
-            const t=document.createElementNS("http://www.w3.org/2000/svg","text");t.setAttribute("x",p.x);t.setAttribute("y",p.y);t.textContent=node.label||node.id||"";g.appendChild(t);svg.appendChild(g);
+
+            const p=positions[node.node_id];
+
+            if(!p)return;
+
+            const g=document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "g"
+            );
+
+            g.setAttribute("class","graph-node");
+
+            const c=document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "circle"
+            );
+
+            c.setAttribute("cx",p.x);
+            c.setAttribute("cy",p.y);
+            c.setAttribute("r",30);
+
+            g.appendChild(c);
+
+            const t=document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            );
+
+            t.setAttribute("x",p.x);
+            t.setAttribute("y",p.y);
+
+            t.textContent=node.label||node.node_id||"";
+
+            g.appendChild(t);
+            svg.appendChild(g);
           });
         }
         async function query(){
@@ -193,6 +316,9 @@ def root():
             const response=await fetch("/query",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question})});
             if(!response.ok)throw new Error("HTTP "+response.status);
             const data=await response.json();
+            console.log("GRAPH NODES:", data.graph_nodes);
+            console.log("GRAPH EDGES:", data.graph_edges);
+
             document.getElementById("answer").textContent=data.answer||"暂无回答";
             renderRetrieval(data);
             renderList("evidence",data.evidences,"evidence-item",item=>{
@@ -212,15 +338,16 @@ def root():
     </body>
     </html>
     """
-
-
 @app.post("/query")
 def query(request: QueryRequest):
-    """主问答接口。"""
-
     response = query_service.query(
         request.question
     )
+
+    print("========== API QUERY RESULT ==========")
+    print("graph_nodes:", response.graph_nodes)
+    print("graph_edges:", response.graph_edges)
+    print("======================================")
 
     return asdict(response)
 

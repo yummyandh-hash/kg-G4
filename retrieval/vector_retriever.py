@@ -78,6 +78,9 @@ class VectorRetriever(BaseRetriever):
                     source_org=item["source_org"],
                     retrieved_at=item["retrieved_at"],
                     source_batch=item["source_batch"],
+                    # =========新增：向量检索无图谱节点，赋值None=========
+                    entity_ids=None,
+                    relation_path=None
                 )
             )
         return res

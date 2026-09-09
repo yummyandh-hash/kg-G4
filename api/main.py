@@ -107,11 +107,11 @@ def root():
         <div class="main-grid">
           <div class="left-panel">
             <div class="card answer-card">
-              <h2>💬 智能回答</h2>
+              <h2>智能回答</h2>
               <div id="answer" class="answer">等待查询...</div>
             </div>
             <div class="card">
-              <h2>🔎 检索信息</h2>
+              <h2>检索信息</h2>
               <div id="retrieval" class="retrieval-summary">
                 <div class="info-item"><div class="info-label">查询类型</div><div class="info-value">—</div></div>
                 <div class="info-item"><div class="info-label">Retriever</div><div class="info-value">—</div></div>
@@ -119,14 +119,14 @@ def root():
                 <div class="info-item"><div class="info-label">路由原因</div><div class="info-value">—</div></div>
               </div>
             </div>
-            <div class="card"><h2>📚 Evidence 检索证据</h2><div id="evidence"><div class="empty">等待查询...</div></div></div>
-            <div class="card"><h2>🔗 关系路径</h2><div id="paths"><div class="empty">等待查询...</div></div></div>
-            <div class="card"><h2>📖 来源</h2><div id="sources"><div class="empty">等待查询...</div></div></div>
+            <div class="card"><h2>Evidence 检索证据</h2><div id="evidence"><div class="empty">等待查询...</div></div></div>
+            <div class="card"><h2>关系路径</h2><div id="paths"><div class="empty">等待查询...</div></div></div>
+            <div class="card"><h2>来源</h2><div id="sources"><div class="empty">等待查询...</div></div></div>
           </div>
 
           <div class="right-panel">
             <div class="card graph-card">
-              <div class="graph-title-row"><h2>🕸️ 知识图谱</h2><span id="graphStatus" class="graph-status">等待查询</span></div>
+              <div class="graph-title-row"><h2>知识图谱</h2><span id="graphStatus" class="graph-status">等待查询</span></div>
               <div id="graphCanvas"><svg id="graphSvg"></svg><div id="graphEmpty" class="empty">查询后将在这里展示知识图谱节点与关系</div></div>
             </div>
           </div>
@@ -210,12 +210,12 @@ def query(request: QueryRequest):
     return asdict(response)
 
 
-@app.get("/graph", response_model=GraphResponse)
-def graph():
-    """返回 Stage 1 示例知识图谱子图。"""
+@app.post("/graph", response_model=GraphResponse)
+def graph(request: QueryRequest):
+    """返回当前问题对应知识图谱子图。"""
 
     response = query_service.query(
-        "什么是蜀绣？"
+        request.question
     )
 
     return GraphResponse(
@@ -239,12 +239,12 @@ def graph():
     )
 
 
-@app.get("/source", response_model=SourceResponse)
-def source():
-    """返回当前示例查询的来源。"""
+@app.post("/source", response_model=SourceResponse)
+def source(request: QueryRequest):
+    """返回当前问题来源。"""
 
     response = query_service.query(
-        "什么是蜀绣？"
+        request.question
     )
 
     return SourceResponse(

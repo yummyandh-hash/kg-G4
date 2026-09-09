@@ -1,5 +1,6 @@
 from time import perf_counter
 from typing import List, Optional, Protocol
+import re
 
 from orchestration.models import (
     AnswerResponse,
@@ -9,7 +10,91 @@ from orchestration.models import (
     RetrievalContext,
     RouteDecision,
 )
+from retrieval.multi_retriever import MultiRetriever
 
+def normalize_evidence(evidence):
+
+    # 如果已经是 E 模块格式，直接返回
+    if hasattr(evidence, "entity_ids") and hasattr(evidence, "relation_path"):
+        return evidence
+
+    entity_ids = []
+    relation_path = []
+
+    # D GraphRetriever 返回的 path
+    if hasattr(evidence, "path") and evidence.path:
+
+        for p in evidence.path:
+
+            if not isinstance(p, str):
+                continue
+
+            # 解析：
+            # A --[RELATION]--> B
+            matches = re.findall(
+                r"(.+?)\s*--\[(.+?)\]-->\s*(.+?)(?=\s+--\[|$)",
+                p
+            )
+
+            for source, relation, target in matches:
+
+                source = source.strip()
+                relation = relation.strip()
+                target = target.strip()
+
+                # E 的 relation_path 格式：
+                # [source, relation, target]
+                relation_path.extend([
+                    source,
+                    relation,
+                    target,
+                ])
+
+                # 构造图谱节点
+                entity_ids.append(source)
+                entity_ids.append(target)
+
+    return Evidence(
+        evidence_id=getattr(
+            evidence,
+            "chunk_id",
+            "d-evidence",
+        ),
+
+        content=getattr(
+            evidence,
+            "evidence",
+            "",
+        ),
+
+        retrieval_method=getattr(
+            evidence,
+            "retriever",
+            "unknown",
+        ),
+
+        score=getattr(
+            evidence,
+            "score",
+            0.0,
+        ),
+
+        source_id=getattr(
+            evidence,
+            "source_name",
+            "",
+        ),
+
+        source_url=getattr(
+            evidence,
+            "source_url",
+            "",
+        ),
+
+        entity_ids=list(set(entity_ids)),
+
+        relation_path=relation_path,
+    )
 
 class Router(Protocol):
     """统一的路由器接口，后续接入 A 模块。"""
@@ -48,10 +133,10 @@ class MockRouter:
 
     def route(self, query: str) -> RouteDecision:
         return RouteDecision(
-            query_type="knowledge",
+            query_type="relation",
             complexity_score=0.3,
-            selected_route="vector",
-            reason="Stage 1 Mock Router：当前默认采用向量检索。",
+            selected_route="hybrid",
+            reason="Stage 1：采用 Graph + Vector 混合检索。",
         )
 
 
@@ -118,8 +203,13 @@ class QueryService:
         retriever: Optional[Retriever] = None,
         answer_generator: Optional[AnswerGenerator] = None,
     ):
+
         self.router = router or MockRouter()
-        self.retriever = retriever or MockRetriever()
+
+        self.retriever = (
+            retriever or MultiRetriever()
+        )
+
         self.answer_generator = (
             answer_generator or MockAnswerGenerator()
         )
@@ -143,10 +233,26 @@ class QueryService:
 
         # 3. 检索
         retrieval_start = perf_counter()
+
         evidences = self.retriever.retrieve(
             question,
             context,
         )
+
+        print("========== RAW D EVIDENCES ==========")
+        for e in evidences:
+            print("TYPE:", type(e))
+            print("EVIDENCE:", e)
+            print("PATH:", getattr(e, "path", None))
+            print("ENTITY_IDS:", getattr(e, "entity_ids", None))
+            print("====================================")
+
+        # D Retriever -> E统一格式
+        evidences = [
+            normalize_evidence(e)
+            for e in evidences
+        ]
+
         retrieval_time = perf_counter() - retrieval_start
 
         # 4. 答案生成
@@ -207,6 +313,10 @@ class QueryService:
                     )
 
         graph_edges = list(edge_map.values())
+
+        print("DEBUG nodes:", graph_nodes)
+        print("DEBUG edges:", graph_edges)
+        print("DEBUG paths:", paths)
 
         # 9. 总耗时
         total_time = perf_counter() - start

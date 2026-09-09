@@ -9,6 +9,7 @@ class RetrievalContext:
     query_type: str
     complexity_score: float
     top_k: int = 5
+    selected_route: Optional[str] = None
 
 
 @dataclass

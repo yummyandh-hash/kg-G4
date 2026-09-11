@@ -4,6 +4,7 @@ from orchestration.retriever_adapters import (
     RouteDispatchRetriever,
 )
 from orchestration.service import QueryService
+from orchestration.generation import LLMGenerator
 
 
 def build_stage1_query_service(
@@ -31,4 +32,5 @@ def build_stage1_query_service(
         router=AnalysisRouter(),
         retriever=retriever,
         top_k=top_k,
+        generator=LLMGenerator(),
     )

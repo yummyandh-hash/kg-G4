@@ -2,6 +2,44 @@ from orchestration.models import Evidence, RouteDecision
 from orchestration.service import QueryService
 
 
+class MockDefaultRouterForTest:
+    """测试 QueryService 的默认 Vector 路由场景。"""
+
+    def route(self, query: str) -> RouteDecision:
+        return RouteDecision(
+            query_type="knowledge",
+            complexity_score=0.3,
+            selected_route="vector",
+            reason="测试默认 Vector 路由",
+        )
+
+
+class MockDefaultRetrieverForTest:
+    """测试 QueryService 的默认 Vector 检索场景。"""
+
+    def retrieve(
+        self,
+        query: str,
+        context,
+    ) -> list[Evidence]:
+        return [
+            Evidence(
+                evidence_id="mock-evidence-001",
+                content="蜀绣主要流传于四川地区。",
+                retrieval_method="vector",
+                score=0.9,
+                source_id="mock-source-001",
+                source_url="https://www.ihchina.cn/",
+                entity_ids=["蜀绣", "四川"],
+                relation_path=[
+                    "蜀绣",
+                    "分布于",
+                    "四川",
+                ],
+            )
+        ]
+
+
 class MockRouterForTest:
     def route(self, query: str) -> RouteDecision:
         return RouteDecision(
@@ -27,7 +65,11 @@ class MockRetrieverForTest:
                 source_id="test-source-001",
                 source_url="https://www.ihchina.cn/",
                 entity_ids=["蜀绣", "四川"],
-                relation_path=["蜀绣", "分布于", "四川"],
+                relation_path=[
+                    "蜀绣",
+                    "分布于",
+                    "四川",
+                ],
             )
         ]
 
@@ -35,20 +77,27 @@ class MockRetrieverForTest:
 class MockAnswerGeneratorForTest:
     def generate(
         self,
-        query: str,
-        evidences: list[Evidence],
+        question: str,
+        context: str,
     ) -> str:
-        return f"基于检索证据回答：{query}"
+        return f"基于检索证据回答：{question}"
 
 
 def test_query_service_default():
-    """测试 Stage 1 默认 Mock 查询流程。"""
+    """测试 QueryService 的基础 Vector 检索流程。"""
 
-    service = QueryService()
+    service = QueryService(
+        router=MockDefaultRouterForTest(),
+        retriever=MockDefaultRetrieverForTest(),
+        generator=MockAnswerGeneratorForTest(),
+    )
 
     response = service.query("什么是蜀绣？")
 
-    assert response.answer
+    # Answer
+    assert response.answer == "基于检索证据回答：什么是蜀绣？"
+
+    # Router
     assert response.query_type == "knowledge"
     assert response.complexity_score == 0.3
     assert response.selected_route == "vector"
@@ -59,35 +108,34 @@ def test_query_service_default():
     assert response.evidences[0].source_id == "mock-source-001"
 
     # Relation Path
-    assert len(response.paths) > 0
-    assert response.paths[0] == [
-        "蜀绣",
-        "分布于",
-        "四川",
+    assert response.paths == [
+        [
+            "蜀绣",
+            "分布于",
+            "四川",
+        ]
     ]
 
     # Source
-    assert len(response.sources) > 0
-    assert response.sources[0] == "mock-source-001"
+    assert response.sources == [
+        "mock-source-001"
+    ]
 
     # Graph
     assert len(response.graph_nodes) > 0
     assert len(response.graph_edges) > 0
 
     # Timing
-    assert "routing" in response.timing
-    assert "retrieval" in response.timing
-    assert "answer_generation" in response.timing
-    assert "total" in response.timing
+    assert "total_ms" in response.timing
 
 
 def test_query_service_with_dependencies():
-    """测试接入 Router / Retriever / AnswerGenerator 后的数据传递。"""
+    """测试接入 Router / Retriever / Generator 后的数据传递。"""
 
     service = QueryService(
         router=MockRouterForTest(),
         retriever=MockRetrieverForTest(),
-        answer_generator=MockAnswerGeneratorForTest(),
+        generator=MockAnswerGeneratorForTest(),
     )
 
     response = service.query("蜀绣和苏绣有什么关系？")
@@ -111,7 +159,11 @@ def test_query_service_with_dependencies():
 
     # Path
     assert response.paths == [
-        ["蜀绣", "分布于", "四川"]
+        [
+            "蜀绣",
+            "分布于",
+            "四川",
+        ]
     ]
 
     # Source
@@ -127,7 +179,10 @@ def test_query_service_with_dependencies():
         for node in response.graph_nodes
     }
 
-    assert node_ids == {"蜀绣", "四川"}
+    assert node_ids == {
+        "蜀绣",
+        "四川",
+    }
 
     # Graph Edge
     assert len(response.graph_edges) == 1

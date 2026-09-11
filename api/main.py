@@ -12,17 +12,10 @@ from orchestration.service import QueryService
 
 
 def build_query_service() -> QueryService:
-    """Use the real Stage 1 pipeline when D dependencies are available."""
-    if os.getenv("KG_G5_STAGE1_REAL") != "1":
-        return QueryService()
+    """Build the real query service for Stage 2."""
+    from orchestration.stage1 import build_stage1_query_service
 
-    try:
-        from orchestration.stage1 import build_stage1_query_service
-
-        return build_stage1_query_service()
-    except Exception as exc:
-        print(f"[WARN] Stage 1 real pipeline unavailable: {exc}")
-        return QueryService()
+    return build_stage1_query_service()
 
 
 app = FastAPI(

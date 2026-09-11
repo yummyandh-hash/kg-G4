@@ -1,5 +1,7 @@
 from time import perf_counter
 from typing import List, Optional, Protocol
+from orchestration.context import build_context
+from orchestration.generation import LLMGenerator
 import re
 
 from orchestration.models import (
@@ -359,54 +361,40 @@ def _build_node_name_map(
     return node_name_map
 
 
-def _path_entities(
-    path,
-) -> List[str]:
+def _path_entities(path) -> List[str]:
     """
-    从 relation_path 中提取所有实体 ID。
+    从 relation_path 中提取实体。
 
-    relation_path 当前结构：
-
-    [
-        {
-            "source": "...",
-            "target": "...",
-            "relation": "..."
-        }
-    ]
+    支持：
+    ["A", "R", "B"]
+    ["A", "R1", "B", "R2", "C"]
+    以及 dict 格式。
     """
+
+    if not path:
+        return []
+
+    # D GraphRetriever 当前格式：
+    # [source, relation, target, ...]
+    if all(isinstance(item, str) for item in path):
+        return path[::2]
 
     entities = []
 
-    if not path:
-        return entities
-
     for item in path:
-
         if not isinstance(item, dict):
             continue
 
-        source = item.get(
-            "source"
-        )
-
-        target = item.get(
-            "target"
-        )
+        source = item.get("source")
+        target = item.get("target")
 
         if source:
-            entities.append(
-                source
-            )
+            entities.append(source)
 
         if target:
-            entities.append(
-                target
-            )
+            entities.append(target)
 
-    return list(
-        dict.fromkeys(entities)
-    )
+    return list(dict.fromkeys(entities))
 
 
 def _path_edges(
@@ -414,41 +402,49 @@ def _path_edges(
 ) -> List[tuple[str, str, str]]:
     """
     从 relation_path 中提取图谱边。
+
+    支持：
+    ["A", "R", "B"]
+    ["A", "R1", "B", "R2", "C"]
+    以及 dict 格式。
     """
+
+    if not path:
+        return []
 
     edges = []
 
-    if not path:
+    # D GraphRetriever 当前格式：
+    # [source, relation, target]
+    # [source, relation1, middle, relation2, target]
+    if all(isinstance(item, str) for item in path):
+
+        if len(path) >= 3 and len(path) % 2 == 1:
+            for i in range(0, len(path) - 2, 2):
+                source = path[i]
+                relation = path[i + 1]
+                target = path[i + 2]
+
+                if source and relation and target:
+                    edges.append(
+                        (source, relation, target)
+                    )
+
         return edges
 
+    # dict 格式
     for item in path:
 
         if not isinstance(item, dict):
             continue
 
-        source = item.get(
-            "source"
-        )
+        source = item.get("source")
+        relation = item.get("relation")
+        target = item.get("target")
 
-        relation = item.get(
-            "relation"
-        )
-
-        target = item.get(
-            "target"
-        )
-
-        if (
-            source
-            and relation
-            and target
-        ):
+        if source and relation and target:
             edges.append(
-                (
-                    source,
-                    relation,
-                    target,
-                )
+                (source, relation, target)
             )
 
     return edges
@@ -461,10 +457,12 @@ class QueryService:
         router: RouterProtocol,
         retriever: RetrieverProtocol,
         top_k: int = 5,
+        generator: Optional[LLMGenerator] = None,
     ):
         self.router = router
         self.retriever = retriever
         self.top_k = top_k
+        self.generator = generator 
 
     def query(
         self,
@@ -474,7 +472,7 @@ class QueryService:
         start_time = perf_counter()
 
         # ==========================================================
-        # 1. Query Routing
+        # Query Routing
         # ==========================================================
 
         decision = self.router.route(
@@ -509,7 +507,7 @@ class QueryService:
         )
 
         # ==========================================================
-        # 2. RetrievalContext
+        # RetrievalContext
         # ==========================================================
 
         context = RetrievalContext(
@@ -520,7 +518,7 @@ class QueryService:
         )
 
         # ==========================================================
-        # 3. MultiRetriever
+        # MultiRetriever
         # ==========================================================
 
         evidences = self.retriever.retrieve(
@@ -529,7 +527,7 @@ class QueryService:
         )
 
         # ==========================================================
-        # 4. Debug：原始 Evidence
+        # Debug：原始 Evidence
         # ==========================================================
 
         print(
@@ -580,7 +578,7 @@ class QueryService:
             )
 
         # ==========================================================
-        # 5. Normalize
+        # Normalize
         # ==========================================================
 
         evidences = [
@@ -621,8 +619,22 @@ class QueryService:
                 "=========================================="
             )
 
+        context = build_context(
+            query=question,
+            evidences=evidences,
+            max_evidence=self.top_k,
+        )
+
+        if self.generator is not None:
+            answer = self.generator.generate(
+                question=question,
+                context=context,
+            )
+        else:
+            answer = ""
+
         # ==========================================================
-        # 6. 构建 entity_id -> 中文名称映射
+        # 构建 entity_id -> 中文名称映射
         # ==========================================================
 
         node_name_map = _build_node_name_map(
@@ -646,7 +658,7 @@ class QueryService:
         )
 
         # ==========================================================
-        # 7. 收集 relation paths
+        # 收集 relation paths
         # ==========================================================
 
         paths = [
@@ -656,7 +668,7 @@ class QueryService:
         ]
 
         # ==========================================================
-        # 8. 构建 Graph Nodes
+        # 构建 Graph Nodes
         # ==========================================================
 
         node_map = {}
@@ -670,7 +682,7 @@ class QueryService:
             ) or []
 
             # ------------------------------------------------------
-            # 8.1 entity_ids
+            # entity_ids
             # ------------------------------------------------------
 
             for entity_id in entity_ids:
@@ -694,7 +706,7 @@ class QueryService:
                 )
 
             # ------------------------------------------------------
-            # 8.2 relation_path
+            # relation_path
             # ------------------------------------------------------
 
             for entity_id in _path_entities(
@@ -724,50 +736,18 @@ class QueryService:
         )
 
         # ==========================================================
-        # 9. 构建 Graph Edges
+        # 构建 Graph Edges
         # ==========================================================
-
-        import ast
 
         edge_map = {}
 
         for evidence in evidences:
 
-            relation_paths = evidence.relation_path or []
+            edges = _path_edges(
+                evidence.relation_path
+            )
 
-            for rel in relation_paths:
-
-                # D 的 relation_path 在当前 normalize 后是字符串：
-                # "{'source': '...', 'target': '...', 'relation': '...'}"
-                if isinstance(rel, str):
-                    try:
-                        rel = ast.literal_eval(rel)
-                    except (ValueError, SyntaxError):
-                        print(
-                            "[WARN] 无法解析 relation_path:",
-                            rel
-                        )
-                        continue
-
-                # 正常情况下应该是 dict
-                if not isinstance(rel, dict):
-                    print(
-                        "[WARN] relation_path 类型异常:",
-                        type(rel),
-                        rel
-                    )
-                    continue
-
-                source = rel.get("source")
-                target = rel.get("target")
-                relation = rel.get("relation")
-
-                if not source or not target or not relation:
-                    print(
-                        "[WARN] relation_path 缺少字段:",
-                        rel
-                    )
-                    continue
+            for source, relation, target in edges:
 
                 edge_key = (
                     source,
@@ -783,10 +763,12 @@ class QueryService:
                         relation=relation,
                     )
 
-        graph_edges = list(edge_map.values())
+        graph_edges = list(
+            edge_map.values()
+        )
 
         # ==========================================================
-        # 10. Debug：最终图谱
+        # Debug：最终图谱
         # ==========================================================
 
         print(
@@ -845,7 +827,7 @@ class QueryService:
         )
 
         # ==========================================================
-        # 11. AnswerResponse
+        # AnswerResponse
         # ==========================================================
 
         elapsed = (
@@ -854,17 +836,21 @@ class QueryService:
         )
 
         return AnswerResponse(
-            answer="",
+            answer=answer,
             query_type=decision.query_type,
             complexity_score=decision.complexity_score,
             selected_route=decision.selected_route,
             route_reason=decision.reason,
             evidences=evidences,
             paths=paths,
-            sources=[],
-            timing={
-                "total_ms": elapsed * 1000,
-            },
+            sources=list(
+                dict.fromkeys(
+                    evidence.source_id
+                    for evidence in evidences
+                    if evidence.source_id
+                )
+            ),
+            timing={"total_ms": elapsed * 1000},
             graph_nodes=graph_nodes,
             graph_edges=graph_edges,
         )

@@ -155,6 +155,15 @@ query 文件支持 JSONL：
 
 也支持一行一个普通问题，但普通问题没有人工标签，会使用启发式方法生成 `best_route`。
 
+如果已经保存过 benchmark records，可以不重新连接真实 Retriever，直接复用 records 训练和对比：
+
+```bash
+python -m orchestration.routing_experiment \
+  --records-in outputs/router_benchmark_records.jsonl \
+  --model-out outputs/router_v2.json \
+  --summary-out outputs/router_summary.json
+```
+
 ### 3.5 Stage 1 / Stage 2 服务构建
 
 文件：

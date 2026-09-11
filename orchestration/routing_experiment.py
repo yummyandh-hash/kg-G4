@@ -13,6 +13,7 @@ from orchestration.routing_benchmark import (
     RoutingBenchmarkQuery,
     RoutingBenchmarkRecord,
     compare_router_decisions,
+    load_benchmark_records,
     save_benchmark_records,
     summarize_router_comparison,
     summarize_router_comparison_by_type,
@@ -96,11 +97,45 @@ def run_routing_experiment(
     )
 
 
+def run_routing_experiment_from_records(
+    records: Iterable[RoutingBenchmarkRecord],
+    *,
+    model_out: str | Path | None = None,
+    summary_out: str | Path | None = None,
+) -> RoutingExperimentResult:
+    records = list(records)
+    router_v2 = train_router_v2_from_records(records)
+    comparisons = compare_router_decisions(
+        records,
+        AnalysisRouter(),
+        router_v2,
+    )
+    summary = summarize_router_comparison(comparisons)
+    summary["by_query_type"] = summarize_router_comparison_by_type(
+        records,
+        comparisons,
+    )
+
+    if model_out:
+        router_v2.save(model_out)
+
+    if summary_out:
+        _save_summary(summary, summary_out)
+
+    return RoutingExperimentResult(
+        records=records,
+        comparisons=comparisons,
+        summary=summary,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run the Stage 2 Router V2 benchmark flow."
     )
-    parser.add_argument("--queries", required=True)
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--queries")
+    input_group.add_argument("--records-in")
     parser.add_argument("--records-out")
     parser.add_argument("--model-out")
     parser.add_argument("--summary-out")
@@ -108,16 +143,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--top-k", type=int, default=5)
     args = parser.parse_args(argv)
 
-    from orchestration.stage1 import build_stage1_retriever
+    if args.records_in:
+        result = run_routing_experiment_from_records(
+            load_benchmark_records(args.records_in),
+            model_out=args.model_out,
+            summary_out=args.summary_out,
+        )
+    else:
+        from orchestration.stage1 import build_stage1_retriever
 
-    result = run_routing_experiment(
-        build_stage1_retriever(chunks_file=args.chunks_file),
-        load_benchmark_queries(args.queries),
-        top_k=args.top_k,
-        records_out=args.records_out,
-        model_out=args.model_out,
-        summary_out=args.summary_out,
-    )
+        result = run_routing_experiment(
+            build_stage1_retriever(chunks_file=args.chunks_file),
+            load_benchmark_queries(args.queries),
+            top_k=args.top_k,
+            records_out=args.records_out,
+            model_out=args.model_out,
+            summary_out=args.summary_out,
+        )
     print(json.dumps(result.summary, ensure_ascii=False, indent=2))
     return 0
 

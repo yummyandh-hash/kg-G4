@@ -1,8 +1,11 @@
 from orchestration.models import Evidence
 from orchestration.routing_experiment import (
     load_benchmark_queries,
+    main,
     run_routing_experiment,
+    run_routing_experiment_from_records,
 )
+from orchestration.routing_benchmark import load_benchmark_records
 
 
 class FakeExperimentRetriever:
@@ -84,6 +87,69 @@ def test_run_routing_experiment_saves_records_and_model(tmp_path):
     assert '"version": "adaptive-router-v2"' in model_out.read_text(
         encoding="utf-8"
     )
+
+
+def test_run_routing_experiment_from_saved_records(tmp_path):
+    records_out = tmp_path / "records.jsonl"
+    model_out = tmp_path / "router_v2.json"
+    summary_out = tmp_path / "summary.json"
+    initial = run_routing_experiment(
+        FakeExperimentRetriever(),
+        load_benchmark_queries_from_text(
+            [
+                '{"query": "simple fact", "query_type": "fact", '
+                '"complexity_score": 0.15, "expected_route": "vector"}',
+                '{"query": "relation query", "query_type": "relation", '
+                '"complexity_score": 0.35, "expected_route": "graph"}',
+            ],
+            tmp_path,
+        ),
+        records_out=records_out,
+    )
+
+    result = run_routing_experiment_from_records(
+        load_benchmark_records(records_out),
+        model_out=model_out,
+        summary_out=summary_out,
+    )
+
+    assert result.summary["total"] == initial.summary["total"]
+    assert model_out.exists()
+    assert summary_out.exists()
+
+
+def test_main_can_reuse_records_without_retriever(tmp_path):
+    records_out = tmp_path / "records.jsonl"
+    model_out = tmp_path / "router_v2.json"
+    summary_out = tmp_path / "summary.json"
+    run_routing_experiment(
+        FakeExperimentRetriever(),
+        load_benchmark_queries_from_text(
+            [
+                '{"query": "simple fact", "query_type": "fact", '
+                '"complexity_score": 0.15, "expected_route": "vector"}',
+                '{"query": "relation query", "query_type": "relation", '
+                '"complexity_score": 0.35, "expected_route": "graph"}',
+            ],
+            tmp_path,
+        ),
+        records_out=records_out,
+    )
+
+    exit_code = main(
+        [
+            "--records-in",
+            str(records_out),
+            "--model-out",
+            str(model_out),
+            "--summary-out",
+            str(summary_out),
+        ]
+    )
+
+    assert exit_code == 0
+    assert model_out.exists()
+    assert summary_out.exists()
 
 
 def load_benchmark_queries_from_text(lines, tmp_path):

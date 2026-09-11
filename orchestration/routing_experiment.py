@@ -12,12 +12,11 @@ from orchestration.routing_benchmark import (
     RouterComparisonRecord,
     RoutingBenchmarkQuery,
     RoutingBenchmarkRecord,
+    build_experiment_summary,
     compare_router_decisions,
     load_benchmark_records,
     save_benchmark_records,
     save_router_comparisons,
-    summarize_router_comparison,
-    summarize_router_comparison_by_type,
     train_router_v2_from_records,
 )
 
@@ -64,7 +63,9 @@ def run_routing_experiment(
     comparisons_out: str | Path | None = None,
     model_out: str | Path | None = None,
     summary_out: str | Path | None = None,
+    metadata: dict | None = None,
 ) -> RoutingExperimentResult:
+    queries = list(queries)
     benchmark = DualRouteBenchmark(
         retriever,
         router=AnalysisRouter(),
@@ -77,10 +78,15 @@ def run_routing_experiment(
         AnalysisRouter(),
         router_v2,
     )
-    summary = summarize_router_comparison(comparisons)
-    summary["by_query_type"] = summarize_router_comparison_by_type(
+    summary = build_experiment_summary(
         records,
         comparisons,
+        metadata={
+            "mode": "live_retriever",
+            "queries_total": len(queries),
+            "top_k": top_k,
+            **(metadata or {}),
+        },
     )
 
     if records_out:
@@ -108,6 +114,7 @@ def run_routing_experiment_from_records(
     comparisons_out: str | Path | None = None,
     model_out: str | Path | None = None,
     summary_out: str | Path | None = None,
+    metadata: dict | None = None,
 ) -> RoutingExperimentResult:
     records = list(records)
     router_v2 = train_router_v2_from_records(records)
@@ -116,10 +123,13 @@ def run_routing_experiment_from_records(
         AnalysisRouter(),
         router_v2,
     )
-    summary = summarize_router_comparison(comparisons)
-    summary["by_query_type"] = summarize_router_comparison_by_type(
+    summary = build_experiment_summary(
         records,
         comparisons,
+        metadata={
+            "mode": "saved_records",
+            **(metadata or {}),
+        },
     )
 
     if model_out:
@@ -159,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
             comparisons_out=args.comparisons_out,
             model_out=args.model_out,
             summary_out=args.summary_out,
+            metadata={"records_in": args.records_in},
         )
     else:
         from orchestration.stage1 import build_stage1_retriever
@@ -171,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
             comparisons_out=args.comparisons_out,
             model_out=args.model_out,
             summary_out=args.summary_out,
+            metadata={
+                "queries_file": args.queries,
+                "chunks_file": args.chunks_file,
+            },
         )
     print(json.dumps(result.summary, ensure_ascii=False, indent=2))
     return 0

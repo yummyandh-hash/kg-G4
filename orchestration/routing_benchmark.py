@@ -272,6 +272,29 @@ def summarize_router_comparison_by_type(
     }
 
 
+def build_experiment_summary(
+    records: Iterable[RoutingBenchmarkRecord],
+    comparisons: Iterable[RouterComparisonRecord],
+    *,
+    metadata: dict | None = None,
+) -> dict:
+    record_rows = list(records)
+    comparison_rows = list(comparisons)
+    summary = summarize_router_comparison(comparison_rows)
+    summary["by_query_type"] = summarize_router_comparison_by_type(
+        record_rows,
+        comparison_rows,
+    )
+    summary["run"] = {
+        "records_total": len(record_rows),
+        "vector_errors": _count_trial_errors(record_rows, "vector"),
+        "graph_errors": _count_trial_errors(record_rows, "graph"),
+        "label_sources": _count_label_sources(record_rows),
+        **(metadata or {}),
+    }
+    return summary
+
+
 def save_router_comparisons(
     comparisons: Iterable[RouterComparisonRecord],
     path: str | Path,
@@ -328,6 +351,26 @@ def _accuracy(correct: int, total: int) -> float:
     if total == 0:
         return 0.0
     return round(correct / total, 4)
+
+
+def _count_trial_errors(
+    records: Iterable[RoutingBenchmarkRecord],
+    route: str,
+) -> int:
+    return sum(
+        1
+        for record in records
+        if getattr(record, route).error is not None
+    )
+
+
+def _count_label_sources(
+    records: Iterable[RoutingBenchmarkRecord],
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in records:
+        counts[record.label_source] = counts.get(record.label_source, 0) + 1
+    return counts
 
 
 def _record_to_dict(record: RoutingBenchmarkRecord) -> dict:

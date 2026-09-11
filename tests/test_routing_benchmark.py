@@ -2,6 +2,7 @@ from orchestration.models import Evidence
 from orchestration.routing_benchmark import (
     DualRouteBenchmark,
     RoutingBenchmarkQuery,
+    build_experiment_summary,
     choose_best_route,
     compare_router_decisions,
     load_benchmark_records,
@@ -191,6 +192,41 @@ def test_router_comparison_summary_reports_v1_v2_accuracy():
     by_type = summarize_router_comparison_by_type(records, comparisons)
     assert set(by_type) == {"fact", "relation"}
     assert by_type["fact"]["total"] == 1
+
+
+def test_experiment_summary_includes_run_metadata():
+    retriever = FakeDualRouteRetriever()
+    benchmark = DualRouteBenchmark(retriever)
+    records = benchmark.run(
+        [
+            RoutingBenchmarkQuery(
+                query="simple fact",
+                query_type="fact",
+                complexity_score=0.15,
+                expected_route="vector",
+            )
+        ]
+    )
+    router_v2 = train_router_v2_from_records(records)
+    comparisons = compare_router_decisions(
+        records,
+        AnalysisRouter(),
+        router_v2,
+    )
+
+    summary = build_experiment_summary(
+        records,
+        comparisons,
+        metadata={"top_k": 5, "dataset": "sample"},
+    )
+
+    assert summary["total"] == 1
+    assert summary["run"]["records_total"] == 1
+    assert summary["run"]["top_k"] == 5
+    assert summary["run"]["dataset"] == "sample"
+    assert summary["run"]["label_sources"] == {"expected": 1}
+    assert summary["run"]["vector_errors"] == 0
+    assert summary["run"]["graph_errors"] == 0
 
 
 def test_router_comparisons_can_be_saved(tmp_path):

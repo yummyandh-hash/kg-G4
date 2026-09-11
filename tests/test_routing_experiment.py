@@ -82,6 +82,9 @@ def test_run_routing_experiment_saves_records_and_model(tmp_path):
     )
 
     assert result.summary["total"] == 2
+    assert result.summary["run"]["mode"] == "live_retriever"
+    assert result.summary["run"]["queries_total"] == 2
+    assert result.summary["run"]["top_k"] == 5
     assert records_out.exists()
     assert comparisons_out.exists()
     assert model_out.exists()
@@ -119,6 +122,8 @@ def test_run_routing_experiment_from_saved_records(tmp_path):
     )
 
     assert result.summary["total"] == initial.summary["total"]
+    assert result.summary["run"]["mode"] == "saved_records"
+    assert result.summary["run"]["records_total"] == 2
     assert comparisons_out.exists()
     assert model_out.exists()
     assert summary_out.exists()
@@ -160,6 +165,7 @@ def test_main_can_reuse_records_without_retriever(tmp_path):
     assert comparisons_out.exists()
     assert model_out.exists()
     assert summary_out.exists()
+    assert '"records_in"' in summary_out.read_text(encoding="utf-8")
 
 
 def load_benchmark_queries_from_text(lines, tmp_path):

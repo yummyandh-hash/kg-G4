@@ -166,6 +166,28 @@ python -m orchestration.routing_experiment \
   --summary-out outputs/router_summary.json
 ```
 
+`router_summary.json` 中会包含 `run` 字段，用于记录本次实验的运行信息：
+
+```json
+{
+  "run": {
+    "mode": "live_retriever",
+    "queries_total": 5,
+    "records_total": 5,
+    "top_k": 5,
+    "vector_errors": 0,
+    "graph_errors": 0,
+    "label_sources": {
+      "expected": 5
+    },
+    "queries_file": "data/router_benchmark_queries.sample.jsonl",
+    "chunks_file": "data/chunks/chunks.jsonl"
+  }
+}
+```
+
+B/C 更新数据集后，A 侧不需要改 Router 代码。需要重新运行 benchmark，生成新的 `router_benchmark_records.jsonl`、`router_summary.json` 和 `router_v2.json`，再用 `router_comparisons.jsonl` 对比 V1/V2 在新数据上的逐题表现。
+
 ### 3.5 Stage 1 / Stage 2 服务构建
 
 文件：

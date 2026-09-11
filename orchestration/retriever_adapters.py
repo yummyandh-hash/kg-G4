@@ -36,12 +36,54 @@ class RouteDispatchRetriever:
         selected_route = getattr(context, "selected_route", None)
         retriever = self.retrievers.get(selected_route)
 
+        if retriever is None and selected_route == "hybrid":
+            return self._retrieve_hybrid(query, context)
+
         if retriever is None:
             raise ValueError(
                 f"No retriever registered for route: {selected_route}"
             )
 
         return retriever.retrieve(query, context)
+
+    def _retrieve_hybrid(
+        self,
+        query: str,
+        context: RetrievalContext,
+    ) -> list[Evidence]:
+        evidences: list[Evidence] = []
+
+        for route in ("graph", "vector"):
+            retriever = self.retrievers.get(route)
+            if retriever is None:
+                continue
+
+            route_context = RetrievalContext(
+                query_type=context.query_type,
+                complexity_score=context.complexity_score,
+                top_k=context.top_k,
+                selected_route=route,
+            )
+            evidences.extend(retriever.retrieve(query, route_context))
+
+        if not evidences:
+            raise ValueError("No retriever registered for route: hybrid")
+
+        with_path = [
+            evidence
+            for evidence in evidences
+            if evidence.relation_path
+        ]
+        without_path = [
+            evidence
+            for evidence in evidences
+            if not evidence.relation_path
+        ]
+        without_path.sort(
+            key=lambda evidence: evidence.score or 0.0,
+            reverse=True,
+        )
+        return (with_path + without_path)[: context.top_k]
 
 
 class DRetrieverAdapter:

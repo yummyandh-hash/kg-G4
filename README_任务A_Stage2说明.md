@@ -27,6 +27,16 @@ retrieve(query, context, top_k)
 
 A 侧通过 `orchestration.retriever_adapters.DRetrieverAdapter` 调用 D 侧 Retriever。
 
+`RouteDispatchRetriever` 支持三种路线：
+
+```text
+vector
+graph
+hybrid
+```
+
+当没有单独注册 `hybrid` retriever 时，A 侧会自动调用 `graph` 和 `vector` 两路，并优先保留带 `relation_path` 的图谱证据。
+
 ### 2.2 relation_path 标准
 
 Stage 2 冻结标准为字典对象数组：

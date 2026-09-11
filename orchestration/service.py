@@ -79,7 +79,13 @@ class MockRetriever:
                 source_id="mock-source-001",
                 source_url="https://www.ihchina.cn/",
                 entity_ids=["蜀绣", "四川"],
-                relation_path=["蜀绣", "分布于", "四川"],
+                relation_path=[
+                    {
+                        "source": "蜀绣",
+                        "relation": "分布于",
+                        "target": "四川",
+                    }
+                ],
             )
         ]
 
@@ -233,9 +239,23 @@ class QueryService:
         )
 
 
-def _path_entities(path: List[str]) -> List[str]:
+def _path_entities(path) -> List[str]:
+    if not path:
+        return []
+
+    if all(isinstance(item, dict) for item in path):
+        entities = []
+        for item in path:
+            entities.extend(
+                value
+                for value in (item.get("source"), item.get("target"))
+                if value
+            )
+        return list(dict.fromkeys(entities))
+
     if len(path) < 3:
         return []
+
     return [
         value
         for index, value in enumerate(path)
@@ -243,11 +263,23 @@ def _path_entities(path: List[str]) -> List[str]:
     ]
 
 
-def _path_edges(path: List[str]) -> List[tuple[str, str, str]]:
-    if len(path) < 3:
+def _path_edges(path) -> List[tuple[str, str, str]]:
+    if not path:
         return []
 
     edges = []
+
+    if all(isinstance(item, dict) for item in path):
+        for item in path:
+            source = item.get("source")
+            relation = item.get("relation")
+            target = item.get("target")
+            if source and relation and target:
+                edges.append((source, relation, target))
+        return edges
+
+    if len(path) < 3:
+        return []
 
     for index in range(0, len(path) - 2, 2):
         source = path[index]

@@ -21,7 +21,13 @@ class FakeDualRouteRetriever:
                     retrieval_method="graph",
                     score=0.8,
                     entity_ids=["a", "b"],
-                    relation_path=["a", "related_to", "b"],
+                    relation_path=[
+                        {
+                            "source": "a",
+                            "relation": "related_to",
+                            "target": "b",
+                        }
+                    ],
                 )
             ]
         return [

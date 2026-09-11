@@ -25,7 +25,7 @@ class Evidence:
     source_url: Optional[str] = None
 
     entity_ids: List[str] = field(default_factory=list)
-    relation_path: List[str] = field(default_factory=list)
+    relation_path: List[Dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -100,7 +100,7 @@ class AnswerResponse:
     route_reason: str
 
     evidences: List[Evidence] = field(default_factory=list)
-    paths: List[List[str]] = field(default_factory=list)
+    paths: List[List[Dict[str, str]]] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
     timing: Dict[str, float] = field(default_factory=dict)
 

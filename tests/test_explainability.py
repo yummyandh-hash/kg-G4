@@ -23,17 +23,21 @@ def test_build_explanation():
                 source_id="s1",
                 source_url="https://www.ihchina.cn/",
                 relation_path=[
-                    "蜀绣",
-                    "分布于",
-                    "四川",
+                    {
+                        "source": "蜀绣",
+                        "relation": "分布于",
+                        "target": "四川",
+                    }
                 ],
             )
         ],
         paths=[
             [
-                "蜀绣",
-                "分布于",
-                "四川",
+                {
+                    "source": "蜀绣",
+                    "relation": "分布于",
+                    "target": "四川",
+                }
             ]
         ],
         sources=["s1"],
@@ -68,7 +72,13 @@ def test_build_explanation():
     )
 
     assert explanation["relation_paths"] == [
-        ["蜀绣", "分布于", "四川"]
+        [
+            {
+                "source": "蜀绣",
+                "relation": "分布于",
+                "target": "四川",
+            }
+        ]
     ]
 
     assert explanation["sources"] == ["s1"]

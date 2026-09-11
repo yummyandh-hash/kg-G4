@@ -7,6 +7,7 @@ from orchestration.routing_benchmark import (
     load_benchmark_records,
     save_benchmark_records,
     summarize_router_comparison,
+    summarize_router_comparison_by_type,
     train_router_v2_from_records,
     training_examples_from_records,
 )
@@ -185,3 +186,7 @@ def test_router_comparison_summary_reports_v1_v2_accuracy():
     assert summary["total"] == 2
     assert summary["v1_accuracy"] >= 0.0
     assert summary["v2_accuracy"] >= 0.0
+
+    by_type = summarize_router_comparison_by_type(records, comparisons)
+    assert set(by_type) == {"fact", "relation"}
+    assert by_type["fact"]["total"] == 1

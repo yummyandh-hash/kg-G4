@@ -15,6 +15,7 @@ from orchestration.routing_benchmark import (
     compare_router_decisions,
     save_benchmark_records,
     summarize_router_comparison,
+    summarize_router_comparison_by_type,
     train_router_v2_from_records,
 )
 
@@ -23,7 +24,7 @@ from orchestration.routing_benchmark import (
 class RoutingExperimentResult:
     records: list[RoutingBenchmarkRecord]
     comparisons: list[RouterComparisonRecord]
-    summary: dict[str, float | int]
+    summary: dict
 
 
 def load_benchmark_queries(path: str | Path) -> list[RoutingBenchmarkQuery]:
@@ -59,6 +60,7 @@ def run_routing_experiment(
     top_k: int = 5,
     records_out: str | Path | None = None,
     model_out: str | Path | None = None,
+    summary_out: str | Path | None = None,
 ) -> RoutingExperimentResult:
     benchmark = DualRouteBenchmark(
         retriever,
@@ -73,12 +75,19 @@ def run_routing_experiment(
         router_v2,
     )
     summary = summarize_router_comparison(comparisons)
+    summary["by_query_type"] = summarize_router_comparison_by_type(
+        records,
+        comparisons,
+    )
 
     if records_out:
         save_benchmark_records(records, records_out)
 
     if model_out:
         router_v2.save(model_out)
+
+    if summary_out:
+        _save_summary(summary, summary_out)
 
     return RoutingExperimentResult(
         records=records,
@@ -94,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--queries", required=True)
     parser.add_argument("--records-out")
     parser.add_argument("--model-out")
+    parser.add_argument("--summary-out")
     parser.add_argument("--chunks-file", default="data/chunks/chunks.jsonl")
     parser.add_argument("--top-k", type=int, default=5)
     args = parser.parse_args(argv)
@@ -106,9 +116,19 @@ def main(argv: list[str] | None = None) -> int:
         top_k=args.top_k,
         records_out=args.records_out,
         model_out=args.model_out,
+        summary_out=args.summary_out,
     )
     print(json.dumps(result.summary, ensure_ascii=False, indent=2))
     return 0
+
+
+def _save_summary(summary: dict, path: str | Path) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":

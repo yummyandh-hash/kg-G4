@@ -58,6 +58,7 @@ def test_load_benchmark_queries_accepts_jsonl_and_plain_lines(tmp_path):
 def test_run_routing_experiment_saves_records_and_model(tmp_path):
     records_out = tmp_path / "records.jsonl"
     model_out = tmp_path / "router_v2.json"
+    summary_out = tmp_path / "reports" / "summary.json"
 
     result = run_routing_experiment(
         FakeExperimentRetriever(),
@@ -72,11 +73,14 @@ def test_run_routing_experiment_saves_records_and_model(tmp_path):
         ),
         records_out=records_out,
         model_out=model_out,
+        summary_out=summary_out,
     )
 
     assert result.summary["total"] == 2
     assert records_out.exists()
     assert model_out.exists()
+    assert summary_out.exists()
+    assert "by_query_type" in summary_out.read_text(encoding="utf-8")
     assert '"version": "adaptive-router-v2"' in model_out.read_text(
         encoding="utf-8"
     )

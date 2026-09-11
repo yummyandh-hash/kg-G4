@@ -129,9 +129,10 @@ orchestration/routing_experiment.py
 
 ```bash
 python -m orchestration.routing_experiment \
-  --queries data/router_benchmark_queries.jsonl \
+  --queries data/router_benchmark_queries.sample.jsonl \
   --records-out outputs/router_benchmark_records.jsonl \
   --model-out outputs/router_v2.json \
+  --summary-out outputs/router_summary.json \
   --top-k 5
 ```
 
@@ -210,7 +211,7 @@ python -m pytest tests
 当前结果：
 
 ```text
-33 passed
+36 passed
 ```
 
 ## 5. 当前完成度

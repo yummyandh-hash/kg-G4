@@ -253,6 +253,25 @@ def summarize_router_comparison(
     }
 
 
+def summarize_router_comparison_by_type(
+    records: Iterable[RoutingBenchmarkRecord],
+    comparisons: Iterable[RouterComparisonRecord],
+) -> dict[str, dict[str, float | int]]:
+    query_types = {
+        record.query: record.query_type
+        for record in records
+    }
+    grouped: dict[str, list[RouterComparisonRecord]] = {}
+    for comparison in comparisons:
+        query_type = query_types.get(comparison.query, "unknown")
+        grouped.setdefault(query_type, []).append(comparison)
+
+    return {
+        query_type: summarize_router_comparison(rows)
+        for query_type, rows in grouped.items()
+    }
+
+
 def save_benchmark_records(
     records: Iterable[RoutingBenchmarkRecord],
     path: str | Path,

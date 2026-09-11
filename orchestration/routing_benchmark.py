@@ -272,6 +272,19 @@ def summarize_router_comparison_by_type(
     }
 
 
+def save_router_comparisons(
+    comparisons: Iterable[RouterComparisonRecord],
+    path: str | Path,
+) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        json.dumps(_comparison_to_dict(comparison), ensure_ascii=False)
+        for comparison in comparisons
+    ]
+    target.write_text("\n".join(lines), encoding="utf-8")
+
+
 def save_benchmark_records(
     records: Iterable[RoutingBenchmarkRecord],
     path: str | Path,
@@ -339,6 +352,18 @@ def _record_from_dict(data: dict) -> RoutingBenchmarkRecord:
         best_route=data["best_route"],
         label_source=data["label_source"],
     )
+
+
+def _comparison_to_dict(comparison: RouterComparisonRecord) -> dict:
+    return {
+        "query": comparison.query,
+        "best_route": comparison.best_route,
+        "v1_route": comparison.v1_route,
+        "v2_route": comparison.v2_route,
+        "v1_correct": comparison.v1_correct,
+        "v2_correct": comparison.v2_correct,
+        "v2_confidence": comparison.v2_confidence,
+    }
 
 
 def _trial_to_dict(trial: RetrieverTrial) -> dict:

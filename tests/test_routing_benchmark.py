@@ -6,6 +6,7 @@ from orchestration.routing_benchmark import (
     compare_router_decisions,
     load_benchmark_records,
     save_benchmark_records,
+    save_router_comparisons,
     summarize_router_comparison,
     summarize_router_comparison_by_type,
     train_router_v2_from_records,
@@ -190,3 +191,31 @@ def test_router_comparison_summary_reports_v1_v2_accuracy():
     by_type = summarize_router_comparison_by_type(records, comparisons)
     assert set(by_type) == {"fact", "relation"}
     assert by_type["fact"]["total"] == 1
+
+
+def test_router_comparisons_can_be_saved(tmp_path):
+    retriever = FakeDualRouteRetriever()
+    benchmark = DualRouteBenchmark(retriever)
+    records = benchmark.run(
+        [
+            RoutingBenchmarkQuery(
+                query="simple fact",
+                query_type="fact",
+                complexity_score=0.15,
+                expected_route="vector",
+            )
+        ]
+    )
+    router_v2 = train_router_v2_from_records(records)
+    comparisons = compare_router_decisions(
+        records,
+        AnalysisRouter(),
+        router_v2,
+    )
+
+    path = tmp_path / "outputs" / "comparisons.jsonl"
+    save_router_comparisons(comparisons, path)
+
+    text = path.read_text(encoding="utf-8")
+    assert '"query": "simple fact"' in text
+    assert '"v2_confidence"' in text

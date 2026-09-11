@@ -15,6 +15,7 @@ from orchestration.routing_benchmark import (
     compare_router_decisions,
     load_benchmark_records,
     save_benchmark_records,
+    save_router_comparisons,
     summarize_router_comparison,
     summarize_router_comparison_by_type,
     train_router_v2_from_records,
@@ -60,6 +61,7 @@ def run_routing_experiment(
     *,
     top_k: int = 5,
     records_out: str | Path | None = None,
+    comparisons_out: str | Path | None = None,
     model_out: str | Path | None = None,
     summary_out: str | Path | None = None,
 ) -> RoutingExperimentResult:
@@ -84,6 +86,9 @@ def run_routing_experiment(
     if records_out:
         save_benchmark_records(records, records_out)
 
+    if comparisons_out:
+        save_router_comparisons(comparisons, comparisons_out)
+
     if model_out:
         router_v2.save(model_out)
 
@@ -100,6 +105,7 @@ def run_routing_experiment(
 def run_routing_experiment_from_records(
     records: Iterable[RoutingBenchmarkRecord],
     *,
+    comparisons_out: str | Path | None = None,
     model_out: str | Path | None = None,
     summary_out: str | Path | None = None,
 ) -> RoutingExperimentResult:
@@ -119,6 +125,9 @@ def run_routing_experiment_from_records(
     if model_out:
         router_v2.save(model_out)
 
+    if comparisons_out:
+        save_router_comparisons(comparisons, comparisons_out)
+
     if summary_out:
         _save_summary(summary, summary_out)
 
@@ -137,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     input_group.add_argument("--queries")
     input_group.add_argument("--records-in")
     parser.add_argument("--records-out")
+    parser.add_argument("--comparisons-out")
     parser.add_argument("--model-out")
     parser.add_argument("--summary-out")
     parser.add_argument("--chunks-file", default="data/chunks/chunks.jsonl")
@@ -146,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.records_in:
         result = run_routing_experiment_from_records(
             load_benchmark_records(args.records_in),
+            comparisons_out=args.comparisons_out,
             model_out=args.model_out,
             summary_out=args.summary_out,
         )
@@ -157,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
             load_benchmark_queries(args.queries),
             top_k=args.top_k,
             records_out=args.records_out,
+            comparisons_out=args.comparisons_out,
             model_out=args.model_out,
             summary_out=args.summary_out,
         )

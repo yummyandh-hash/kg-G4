@@ -141,6 +141,7 @@ orchestration/routing_experiment.py
 python -m orchestration.routing_experiment \
   --queries data/router_benchmark_queries.sample.jsonl \
   --records-out outputs/router_benchmark_records.jsonl \
+  --comparisons-out outputs/router_comparisons.jsonl \
   --model-out outputs/router_v2.json \
   --summary-out outputs/router_summary.json \
   --top-k 5
@@ -160,6 +161,7 @@ query 文件支持 JSONL：
 ```bash
 python -m orchestration.routing_experiment \
   --records-in outputs/router_benchmark_records.jsonl \
+  --comparisons-out outputs/router_comparisons.jsonl \
   --model-out outputs/router_v2.json \
   --summary-out outputs/router_summary.json
 ```
@@ -230,7 +232,7 @@ python -m pytest tests
 当前结果：
 
 ```text
-36 passed
+40 passed
 ```
 
 ## 5. 当前完成度

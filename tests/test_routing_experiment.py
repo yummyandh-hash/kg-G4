@@ -60,6 +60,7 @@ def test_load_benchmark_queries_accepts_jsonl_and_plain_lines(tmp_path):
 
 def test_run_routing_experiment_saves_records_and_model(tmp_path):
     records_out = tmp_path / "records.jsonl"
+    comparisons_out = tmp_path / "comparisons.jsonl"
     model_out = tmp_path / "router_v2.json"
     summary_out = tmp_path / "reports" / "summary.json"
 
@@ -75,12 +76,14 @@ def test_run_routing_experiment_saves_records_and_model(tmp_path):
             tmp_path,
         ),
         records_out=records_out,
+        comparisons_out=comparisons_out,
         model_out=model_out,
         summary_out=summary_out,
     )
 
     assert result.summary["total"] == 2
     assert records_out.exists()
+    assert comparisons_out.exists()
     assert model_out.exists()
     assert summary_out.exists()
     assert "by_query_type" in summary_out.read_text(encoding="utf-8")
@@ -92,6 +95,7 @@ def test_run_routing_experiment_saves_records_and_model(tmp_path):
 def test_run_routing_experiment_from_saved_records(tmp_path):
     records_out = tmp_path / "records.jsonl"
     model_out = tmp_path / "router_v2.json"
+    comparisons_out = tmp_path / "comparisons.jsonl"
     summary_out = tmp_path / "summary.json"
     initial = run_routing_experiment(
         FakeExperimentRetriever(),
@@ -109,11 +113,13 @@ def test_run_routing_experiment_from_saved_records(tmp_path):
 
     result = run_routing_experiment_from_records(
         load_benchmark_records(records_out),
+        comparisons_out=comparisons_out,
         model_out=model_out,
         summary_out=summary_out,
     )
 
     assert result.summary["total"] == initial.summary["total"]
+    assert comparisons_out.exists()
     assert model_out.exists()
     assert summary_out.exists()
 
@@ -121,6 +127,7 @@ def test_run_routing_experiment_from_saved_records(tmp_path):
 def test_main_can_reuse_records_without_retriever(tmp_path):
     records_out = tmp_path / "records.jsonl"
     model_out = tmp_path / "router_v2.json"
+    comparisons_out = tmp_path / "comparisons.jsonl"
     summary_out = tmp_path / "summary.json"
     run_routing_experiment(
         FakeExperimentRetriever(),
@@ -142,12 +149,15 @@ def test_main_can_reuse_records_without_retriever(tmp_path):
             str(records_out),
             "--model-out",
             str(model_out),
+            "--comparisons-out",
+            str(comparisons_out),
             "--summary-out",
             str(summary_out),
         ]
     )
 
     assert exit_code == 0
+    assert comparisons_out.exists()
     assert model_out.exists()
     assert summary_out.exists()
 

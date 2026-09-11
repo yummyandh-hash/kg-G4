@@ -65,6 +65,7 @@ class RouteDecision:
     complexity_score: float
     selected_route: str
     reason: str
+    confidence: Optional[float] = None
 
 
 @dataclass

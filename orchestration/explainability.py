@@ -11,6 +11,7 @@ def build_explanation(response: AnswerResponse) -> Dict[str, object]:
     return {
         "selected_retriever": response.selected_route,
         "route_reason": response.route_reason,
+        "route_confidence": response.route_confidence,
         "evidence": [
             {
                 "evidence_id": evidence.evidence_id,

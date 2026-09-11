@@ -1,0 +1,5 @@
+{"query": "什么是蜀绣？", "query_type": "fact", "complexity_score": 0.15, "expected_route": "vector"}
+{"query": "蜀绣和四川有什么关系？", "query_type": "relation", "complexity_score": 0.35, "expected_route": "graph"}
+{"query": "苏绣和蜀绣有什么区别？", "query_type": "comparison", "complexity_score": 0.60, "expected_route": "graph"}
+{"query": "列出属于四川地区的传统技艺项目", "query_type": "constraint", "complexity_score": 0.50, "expected_route": "graph"}
+{"query": "皮影戏的基本介绍是什么？", "query_type": "fact", "complexity_score": 0.20, "expected_route": "vector"}

@@ -257,11 +257,13 @@ def save_benchmark_records(
     records: Iterable[RoutingBenchmarkRecord],
     path: str | Path,
 ) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         json.dumps(_record_to_dict(record), ensure_ascii=False)
         for record in records
     ]
-    Path(path).write_text("\n".join(lines), encoding="utf-8")
+    target.write_text("\n".join(lines), encoding="utf-8")
 
 
 def load_benchmark_records(path: str | Path) -> list[RoutingBenchmarkRecord]:

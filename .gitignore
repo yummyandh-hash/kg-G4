@@ -9,6 +9,9 @@ venv/
 # Test cache
 .pytest_cache/
 
+# Experiment outputs
+outputs/
+
 # Environment variables and secrets
 .env
 

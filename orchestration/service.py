@@ -225,6 +225,7 @@ class QueryService:
             complexity_score=context.complexity_score,
             selected_route=decision.selected_route,
             route_reason=decision.reason,
+            route_confidence=decision.confidence,
             evidences=evidences,
             paths=paths,
             sources=sources,

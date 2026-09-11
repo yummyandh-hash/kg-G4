@@ -141,7 +141,7 @@ def test_benchmark_records_can_round_trip_jsonl(tmp_path):
         ]
     )
 
-    path = tmp_path / "records.jsonl"
+    path = tmp_path / "outputs" / "records.jsonl"
     save_benchmark_records(records, path)
     loaded = load_benchmark_records(path)
 

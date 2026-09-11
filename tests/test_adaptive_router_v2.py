@@ -89,7 +89,7 @@ def test_router_v2_can_save_and_load(tmp_path):
         ]
     )
 
-    model_path = tmp_path / "router_v2.json"
+    model_path = tmp_path / "models" / "router_v2.json"
     router.save(model_path)
     loaded = AdaptiveRouterV2.load(model_path)
 

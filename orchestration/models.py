@@ -98,6 +98,7 @@ class AnswerResponse:
     complexity_score: float
     selected_route: str
     route_reason: str
+    route_confidence: Optional[float] = None
 
     evidences: List[Evidence] = field(default_factory=list)
     paths: List[List[Dict[str, str]]] = field(default_factory=list)

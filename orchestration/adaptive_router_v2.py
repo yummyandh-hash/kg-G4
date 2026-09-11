@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from math import exp, log
+from pathlib import Path
 from typing import Iterable
 
 from orchestration.adaptive_router import AdaptiveRouter
@@ -122,6 +124,27 @@ class AdaptiveRouterV2:
         self.bias = 0.0
         self.is_trained = False
 
+    @classmethod
+    def from_dict(cls, data: dict) -> AdaptiveRouterV2:
+        router = cls(
+            threshold=float(data.get("threshold", 0.5)),
+            learning_rate=float(data.get("learning_rate", 0.2)),
+            epochs=int(data.get("epochs", 300)),
+        )
+        saved_weights = data.get("weights", {})
+        router.weights = {
+            name: float(saved_weights.get(name, 0.0))
+            for name in FEATURE_NAMES
+        }
+        router.bias = float(data.get("bias", 0.0))
+        router.is_trained = bool(data.get("is_trained", False))
+        return router
+
+    @classmethod
+    def load(cls, path: str | Path) -> AdaptiveRouterV2:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls.from_dict(data)
+
     def fit(
         self,
         examples: Iterable[RoutingTrainingExample],
@@ -159,6 +182,24 @@ class AdaptiveRouterV2:
 
         self.is_trained = True
         return self
+
+    def to_dict(self) -> dict:
+        return {
+            "version": "adaptive-router-v2",
+            "feature_names": list(FEATURE_NAMES),
+            "threshold": self.threshold,
+            "learning_rate": self.learning_rate,
+            "epochs": self.epochs,
+            "weights": dict(self.weights),
+            "bias": self.bias,
+            "is_trained": self.is_trained,
+        }
+
+    def save(self, path: str | Path) -> None:
+        Path(path).write_text(
+            json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def route(self, query: str) -> RouteDecision:
         query_type, complexity_score, features = self.extractor.analyze(query)

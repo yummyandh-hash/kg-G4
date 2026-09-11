@@ -68,3 +68,35 @@ def test_router_v2_learns_from_labeled_examples():
     assert vector_decision.selected_route == "vector"
     assert vector_decision.confidence is not None
     assert vector_decision.confidence > 0.5
+
+
+def test_router_v2_can_save_and_load(tmp_path):
+    router = AdaptiveRouterV2(epochs=200, learning_rate=0.3)
+    router.fit(
+        [
+            RoutingTrainingExample(
+                query="simple fact",
+                query_type="fact",
+                complexity_score=0.15,
+                best_route="vector",
+            ),
+            RoutingTrainingExample(
+                query="entity relation",
+                query_type="relation",
+                complexity_score=0.35,
+                best_route="graph",
+            ),
+        ]
+    )
+
+    model_path = tmp_path / "router_v2.json"
+    router.save(model_path)
+    loaded = AdaptiveRouterV2.load(model_path)
+
+    assert loaded.is_trained
+    assert loaded.to_dict()["feature_names"] == router.to_dict()["feature_names"]
+    assert loaded.route_from_features(
+        "relation",
+        0.35,
+        QueryFeatureExtractor().features("entity relation", "relation", 0.35),
+    ).selected_route == "graph"

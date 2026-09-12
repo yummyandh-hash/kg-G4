@@ -256,6 +256,34 @@ verify_claim(answer, chunk_ids)
 
 返回结果会写入 `AnswerResponse.citation_validation`，并在 `/query` 和 `/explanation` 输出中保留。若服务不可用或未启用，该字段为 `None`，不影响原有问答流程。
 
+### 3.7 任务 3 问答 benchmark 接入
+
+B 侧提供的正式题库约定为：
+
+```text
+benchmark/benchmark.jsonl
+```
+
+每题包含 `qid`、问题文本、题型、`gold_answer`、`gold_evidence` 和 `details`。A 侧只将问题送入系统，`gold_answer` 仅用于后续评分和结果记录，不会作为回答输入。
+
+运行方式：
+
+```bash
+python -m orchestration.answer_benchmark \
+  --benchmark benchmark/benchmark.jsonl \
+  --records-out outputs/answer_benchmark_records.jsonl \
+  --summary-out outputs/answer_benchmark_summary.json \
+  --top-k 5
+```
+
+输出：
+
+1. `answer_benchmark_records.jsonl`：逐题记录系统回答、路由、召回 evidence、gold evidence、命中 evidence 和 evidence recall。
+2. `answer_benchmark_summary.json`：按题型统计数量和平均 evidence recall。
+
+说明：
+当前 A 分支已经提供读取和统计入口，但真实 `benchmark/` 目录需要 B 合入后才能跑正式 15 题结果。B 若调整字段名，A 侧已兼容 `question/query` 和 `type/query_type`，但 `qid`、`gold_answer`、`gold_evidence` 建议保持冻结。
+
 ## 4. 测试
 
 当前新增和更新的测试包括：
@@ -264,6 +292,7 @@ verify_claim(answer, chunk_ids)
 tests/test_adaptive_router_v2.py
 tests/test_routing_benchmark.py
 tests/test_routing_experiment.py
+tests/test_answer_benchmark.py
 tests/test_stage1_routing.py
 tests/test_context.py
 tests/test_service.py
@@ -279,7 +308,7 @@ python -m pytest tests
 当前结果：
 
 ```text
-44 passed
+46 passed
 ```
 
 ## 5. 当前完成度
@@ -294,7 +323,8 @@ python -m pytest tests
 6. Router V2 模型保存和加载。
 7. V1/V2 对比汇总。
 8. relation_path 字典数组标准化。
-9. 单元测试覆盖。
+9. 任务 3 问答 benchmark 读取和 evidence recall 统计。
+10. 单元测试覆盖。
 
 待联调：
 

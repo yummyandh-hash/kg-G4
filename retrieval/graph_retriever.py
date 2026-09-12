@@ -36,10 +36,9 @@ class GraphRetriever(BaseRetriever):
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         node_evidences: List[Evidence] = []
         relation_evidences: List[Evidence] = []
-        
+
         if self.driver is None:
             return []
-
         # 1.双向contains：节点名包含query OR query包含节点名，解决长自然问句内嵌实体的场景
         cypher_node = """
         MATCH (n:InheritProject)
@@ -55,7 +54,6 @@ class GraphRetriever(BaseRetriever):
                 records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
                     hit_records.append({"name": rec["name"], "attr": rec["attr"], "eid": rec["eid"]})
-
             # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
             hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
             for rec in hit_records:
@@ -63,7 +61,6 @@ class GraphRetriever(BaseRetriever):
                 attr = rec["attr"]
                 eid = rec["eid"]
                 content = f"项目名称：{name}，属性信息：{attr}"
-
                 ev = Evidence(
                     evidence=content,
                     score=0.80,
@@ -71,7 +68,7 @@ class GraphRetriever(BaseRetriever):
                     retriever="graph_retriever",
                     latency=time.time() - t0,
                     document_id=eid or "",
-                    chunk_id="graph_node",
+                    chunk_id=None,
                     source_url="",
                     source_name=name,
                     source_category="",
@@ -85,7 +82,6 @@ class GraphRetriever(BaseRetriever):
                 )
                 node_evidences.append(ev)
                 node_hit_entities.append(name)
-
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
 
@@ -93,14 +89,12 @@ class GraphRetriever(BaseRetriever):
         query_type = "relation"
         if request.context is not None and request.context.query_type:
             query_type = request.context.query_type
-
         # 只要命中了节点，默认均去查询关系，确保前端拿到 relation_path 绘制关系边
         if len(node_hit_entities) > 0:
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
             hop1_list = self._one_hop_retrieve(entity, top_k=request.top_k)
             relation_evidences.extend(hop1_list)
-
-            # 如果显式指定了 relation_2hop，追加 two-hop
+            # 如果显式指定了 relation_2hop，追加 two‑hop
             if query_type == "relation_2hop":
                 hop2_list = self._two_hop_retrieve(entity, top_k=request.top_k)
                 relation_evidences.extend(hop2_list)
@@ -113,7 +107,6 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
-
         cypher_onehop = """
         MATCH (h:InheritProject {name:$entity_name})-[r]-(neigh)
         RETURN h.name AS src, type(r) AS rel, neigh.name AS target, h.entity_id AS src_eid, neigh.entity_id AS target_eid
@@ -129,9 +122,7 @@ class GraphRetriever(BaseRetriever):
                     target = rec["target"]
                     src_eid = rec["src_eid"]
                     target_eid = rec["target_eid"]
-
                     path_text = f"{src} --[{rel_type}]--> {target}"
-
                     # 构造图谱渲染字段
                     entity_ids = [src_eid, target_eid]
                     relation_path: List[Dict] = [
@@ -141,7 +132,6 @@ class GraphRetriever(BaseRetriever):
                             "relation": rel_type
                         }
                     ]
-
                     ev = Evidence(
                         evidence=path_text,
                         score=0.70,
@@ -149,7 +139,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_one_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id="graph_one_hop",
+                        chunk_id=None,
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -169,7 +159,6 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
-
         cypher_twohop = """
         MATCH (h:InheritProject {name:$entity_name})-[r1]-(mid)-[r2]-(neigh2)
         RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target,
@@ -186,20 +175,16 @@ class GraphRetriever(BaseRetriever):
                     mid_node = rec["mid_node"]
                     rel2 = rec["rel2"]
                     target = rec["target"]
-
                     src_eid = rec["src_eid"]
                     mid_eid = rec["mid_eid"]
                     target_eid = rec["target_eid"]
-
                     path_text = f"{src} --[{rel1}]--> {mid_node} --[{rel2}]--> {target}"
-
                     # 两跳：三个节点id，两条关系
                     entity_ids = [src_eid, mid_eid, target_eid]
                     relation_path: List[Dict] = [
                         {"source": src_eid, "target": mid_eid, "relation": rel1},
                         {"source": mid_eid, "target": target_eid, "relation": rel2}
                     ]
-
                     ev = Evidence(
                         evidence=path_text,
                         score=0.60,
@@ -207,7 +192,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_two_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id="graph_two_hop",
+                        chunk_id=None,
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -226,6 +211,7 @@ class GraphRetriever(BaseRetriever):
     def close(self):
         if self.driver:
             self.driver.close()
+
 
 if __name__ == "__main__":
     gr = GraphRetriever()
@@ -255,5 +241,4 @@ if __name__ == "__main__":
         print("entity_ids:", item.entity_ids)
         print("relation_path:", item.relation_path)
         print("-" * 50)
-
     gr.close()

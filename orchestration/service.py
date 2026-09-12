@@ -329,9 +329,9 @@ def _path_edges(path) -> List[tuple[str, str, str]]:
 
 def _citation_chunk_ids(evidences: List[Evidence]) -> List[str]:
     ids = [
-        evidence.source_id or evidence.evidence_id
+        evidence.source_id
         for evidence in evidences
-        if evidence.source_id or evidence.evidence_id
+        if evidence.source_id
     ]
     return list(dict.fromkeys(str(item) for item in ids if item))
 

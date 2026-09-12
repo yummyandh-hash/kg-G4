@@ -134,12 +134,9 @@ class DRetrieverAdapter:
         content = _first_present(raw, "evidence", "content", default="")
         score = _first_present(raw, "score", default=None)
         source_url = _first_present(raw, "source_url", default=None) or None
-        source_id = (
-            _first_present(raw, "document_id", "source_id", default=None)
-            or _first_present(raw, "chunk_id", default=None)
-            or _first_present(raw, "source_name", default=None)
-        )
         chunk_id = _first_present(raw, "chunk_id", default=None)
+        explicit_source_id = _first_present(raw, "source_id", default=None)
+        source_id = chunk_id or explicit_source_id
         retriever_name = _first_present(raw, "retriever", default=None)
         evidence_id = (
             chunk_id

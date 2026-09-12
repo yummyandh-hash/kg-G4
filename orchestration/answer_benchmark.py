@@ -212,9 +212,8 @@ def _benchmark_item_from_dict(data: dict) -> AnswerBenchmarkItem:
 def _response_evidence_ids(response: AnswerResponse) -> list[str]:
     ids = []
     for evidence in response.evidences:
-        for candidate in (evidence.source_id, evidence.evidence_id):
-            if candidate:
-                ids.append(str(candidate))
+        if evidence.source_id:
+            ids.append(str(evidence.source_id))
     return list(dict.fromkeys(ids))
 
 

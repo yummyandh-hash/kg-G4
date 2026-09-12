@@ -41,7 +41,7 @@ def load_benchmark_queries(path: str | Path) -> list[RoutingBenchmarkQuery]:
             data = json.loads(stripped)
             queries.append(
                 RoutingBenchmarkQuery(
-                    query=data["query"],
+                    query=data.get("query") or data["question"],
                     query_type=data.get("query_type"),
                     complexity_score=data.get("complexity_score"),
                     expected_route=data.get("expected_route")

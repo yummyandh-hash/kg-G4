@@ -58,6 +58,22 @@ def test_load_benchmark_queries_accepts_jsonl_and_plain_lines(tmp_path):
     assert queries[1].query == "q2"
 
 
+def test_load_benchmark_queries_accepts_b_routing_questions(tmp_path):
+    path = tmp_path / "routing_questions.jsonl"
+    path.write_text(
+        '{"qid": "rq1", "question": "关系问题", '
+        '"question_category": "multi_hop"}',
+        encoding="utf-8",
+    )
+
+    queries = load_benchmark_queries(path)
+
+    assert len(queries) == 1
+    assert queries[0].query == "关系问题"
+    assert queries[0].query_type is None
+    assert queries[0].expected_route is None
+
+
 def test_run_routing_experiment_saves_records_and_model(tmp_path):
     records_out = tmp_path / "records.jsonl"
     comparisons_out = tmp_path / "comparisons.jsonl"

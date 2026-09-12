@@ -83,6 +83,14 @@ class DOneHopRetriever:
         ]
 
 
+class RawListRetriever:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def retrieve(self, query, context=None, top_k=5):
+        return self.rows[:top_k]
+
+
 def test_d_adapter_passes_relation_context_and_normalizes_one_hop_path():
     d_retriever = DOneHopRetriever()
     adapter = DRetrieverAdapter(d_retriever, retrieval_method="graph")
@@ -129,6 +137,57 @@ def test_d_adapter_keeps_d_relation_path_dict_array():
         "朝鲜族农乐舞（象帽舞）",
         "吉林省延边朝鲜族自治州",
     ]
+
+
+def test_d_adapter_uses_chunk_id_as_source_id_not_document_id():
+    adapter = DRetrieverAdapter(
+        RawListRetriever([
+            {
+                "content": "chunk content",
+                "score": 0.8,
+                "chunk_id": "ihchina_0098187ad030_content_3",
+                "document_id": "ihchina_0098187ad030",
+                "source_name": "source title",
+            }
+        ]),
+        retrieval_method="vector",
+    )
+    context = RetrievalContext(
+        query_type="fact",
+        complexity_score=0.2,
+        top_k=5,
+        selected_route="vector",
+    )
+
+    evidences = adapter.retrieve("query", context)
+
+    assert evidences[0].source_id == "ihchina_0098187ad030_content_3"
+    assert evidences[0].evidence_id == "ihchina_0098187ad030_content_3"
+
+
+def test_d_adapter_does_not_use_document_id_as_source_id():
+    adapter = DRetrieverAdapter(
+        RawListRetriever([
+            {
+                "content": "graph node evidence",
+                "score": 0.7,
+                "document_id": "ihchina_0098187ad030",
+                "source_name": "source title",
+            }
+        ]),
+        retrieval_method="graph",
+    )
+    context = RetrievalContext(
+        query_type="relation",
+        complexity_score=0.35,
+        top_k=5,
+        selected_route="graph",
+    )
+
+    evidences = adapter.retrieve("query", context)
+
+    assert evidences[0].source_id is None
+    assert evidences[0].evidence_id == "graph-001"
 
 
 def test_query_service_builds_graph_edges_from_d_one_hop_path():

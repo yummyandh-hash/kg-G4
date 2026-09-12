@@ -36,12 +36,54 @@ class RouteDispatchRetriever:
         selected_route = getattr(context, "selected_route", None)
         retriever = self.retrievers.get(selected_route)
 
+        if retriever is None and selected_route == "hybrid":
+            return self._retrieve_hybrid(query, context)
+
         if retriever is None:
             raise ValueError(
                 f"No retriever registered for route: {selected_route}"
             )
 
         return retriever.retrieve(query, context)
+
+    def _retrieve_hybrid(
+        self,
+        query: str,
+        context: RetrievalContext,
+    ) -> list[Evidence]:
+        evidences: list[Evidence] = []
+
+        for route in ("graph", "vector"):
+            retriever = self.retrievers.get(route)
+            if retriever is None:
+                continue
+
+            route_context = RetrievalContext(
+                query_type=context.query_type,
+                complexity_score=context.complexity_score,
+                top_k=context.top_k,
+                selected_route=route,
+            )
+            evidences.extend(retriever.retrieve(query, route_context))
+
+        if not evidences:
+            raise ValueError("No retriever registered for route: hybrid")
+
+        with_path = [
+            evidence
+            for evidence in evidences
+            if evidence.relation_path
+        ]
+        without_path = [
+            evidence
+            for evidence in evidences
+            if not evidence.relation_path
+        ]
+        without_path.sort(
+            key=lambda evidence: evidence.score or 0.0,
+            reverse=True,
+        )
+        return (with_path + without_path)[: context.top_k]
 
 
 class DRetrieverAdapter:
@@ -136,45 +178,112 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
-def _relation_path(raw: Any) -> list[str]:
+def _relation_path(raw: Any) -> list[dict[str, str]]:
     path = _first_present(raw, "relation_path", default=None)
     if path:
-        if isinstance(path, str):
-            return _parse_path_text(path)
-        return [str(item) for item in path if item is not None]
+        return _normalize_relation_path(path)
 
     d_path = _first_present(raw, "path", default=None)
     if d_path is None:
         return []
 
-    if isinstance(d_path, str):
-        return _parse_path_text(d_path)
+    return _normalize_relation_path(d_path)
 
-    for item in d_path:
+
+def _normalize_relation_path(value: Any) -> list[dict[str, str]]:
+    if isinstance(value, dict):
+        relation = _relation_from_dict(value)
+        return [relation] if relation else []
+
+    if isinstance(value, str):
+        return _parse_path_text(value)
+
+    relations: list[dict[str, str]] = []
+    flat_items: list[str] = []
+
+    for item in value:
+        if item is None:
+            continue
+
+        if isinstance(item, dict):
+            relation = _relation_from_dict(item)
+            if relation:
+                relations.append(relation)
+            continue
+
         if isinstance(item, str):
             parsed = _parse_path_text(item)
             if parsed:
-                return parsed
+                relations.extend(parsed)
+            else:
+                flat_items.append(item)
+            continue
 
-    return [str(item) for item in d_path if item is not None]
+        flat_items.append(str(item))
+
+    if relations:
+        return relations
+
+    return _flat_path_to_relations(flat_items)
 
 
-def _parse_path_text(path_text: str) -> list[str]:
+def _relation_from_dict(value: dict[str, Any]) -> dict[str, str] | None:
+    source = value.get("source")
+    relation = value.get("relation")
+    target = value.get("target")
+
+    if not source or not relation or not target:
+        return None
+
+    return {
+        "source": str(source),
+        "relation": str(relation),
+        "target": str(target),
+    }
+
+
+def _parse_path_text(path_text: str) -> list[dict[str, str]]:
     parts = re.split(r"\s*--\[(.*?)\]-->\s*", path_text.strip())
-    if len(parts) >= 3:
-        return [part.strip() for part in parts if part.strip()]
-    return [path_text.strip()] if path_text.strip() else []
+    parts = [part.strip() for part in parts if part.strip()]
+    return _flat_path_to_relations(parts)
 
 
-def _entity_ids(raw: Any, relation_path: list[str]) -> list[str]:
+def _flat_path_to_relations(parts: list[str]) -> list[dict[str, str]]:
+    if len(parts) < 3:
+        return []
+
+    relations = []
+    for index in range(0, len(parts) - 2, 2):
+        source = parts[index]
+        relation = parts[index + 1]
+        target = parts[index + 2]
+        relations.append(
+            {
+                "source": source,
+                "relation": relation,
+                "target": target,
+            }
+        )
+
+    return relations
+
+
+def _entity_ids(raw: Any, relation_path: list[dict[str, str]]) -> list[str]:
     entity_ids = _first_present(raw, "entity_ids", default=None)
     if entity_ids:
         return [str(item) for item in entity_ids if item is not None]
 
     ids: list[str] = []
 
-    if len(relation_path) >= 3:
-        ids.extend(relation_path[0::2])
+    for relation in relation_path:
+        ids.extend(
+            item
+            for item in (
+                relation.get("source"),
+                relation.get("target"),
+            )
+            if item
+        )
 
     source_name = _first_present(raw, "source_name", default=None)
     document_id = _first_present(raw, "document_id", default=None)

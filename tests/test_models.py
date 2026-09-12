@@ -1,5 +1,6 @@
 from orchestration.models import (
     AnswerResponse,
+    CitationValidation,
     Evidence,
     RetrievalContext,
     Retriever,
@@ -86,6 +87,19 @@ def test_answer_response_defaults():
     assert response.paths == []
     assert response.sources == []
     assert response.timing == {}
+    assert response.citation_validation is None
+
+def test_citation_validation_model():
+    validation = CitationValidation(
+        label="SUPPORTED",
+        confidence=0.91,
+        reason="claim is supported by cited chunks",
+        evidences=[{"chunk_id": "chunk-1"}],
+    )
+
+    assert validation.label == "SUPPORTED"
+    assert validation.confidence == 0.91
+    assert validation.evidences == [{"chunk_id": "chunk-1"}]
 
 def test_document():
     document = Document(

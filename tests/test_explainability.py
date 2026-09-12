@@ -1,6 +1,7 @@
 from orchestration.explainability import build_explanation
 from orchestration.models import (
     AnswerResponse,
+    CitationValidation,
     Evidence,
     GraphEdge,
     GraphNode,
@@ -217,3 +218,28 @@ def test_build_explanation_handles_empty_response():
     assert result["graph"]["edges"] == []
     assert result["graph"]["node_count"] == 0
     assert result["graph"]["edge_count"] == 0
+
+
+def test_build_explanation_includes_citation_validation():
+    response = AnswerResponse(
+        answer="ok",
+        query_type="fact",
+        complexity_score=0.2,
+        selected_route="vector",
+        route_reason="test",
+        citation_validation=CitationValidation(
+            label="SUPPORTED",
+            confidence=0.9,
+            reason="supported",
+            evidences=[{"chunk_id": "chunk-1"}],
+        ),
+    )
+
+    explanation = build_explanation(response)
+
+    assert explanation["citation_validation"] == {
+        "label": "SUPPORTED",
+        "confidence": 0.9,
+        "reason": "supported",
+        "evidences": [{"chunk_id": "chunk-1"}],
+    }

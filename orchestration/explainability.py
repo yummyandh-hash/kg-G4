@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Any, Dict, List
 
 from orchestration.models import AnswerResponse, Evidence
@@ -77,6 +78,8 @@ def build_explanation(response: AnswerResponse) -> Dict[str, object]:
 
     用于向 Web/API 层提供：
     - Adaptive Router 决策
+    - Router 置信度
+    - Citation Validation
     - 检索 Evidence
     - Relation Path
     - Source
@@ -106,6 +109,14 @@ def build_explanation(response: AnswerResponse) -> Dict[str, object]:
         "complexity_score": response.complexity_score,
         "selected_retriever": response.selected_route,
         "route_reason": response.route_reason,
+        "route_confidence": response.route_confidence,
+
+        # ---------- Citation Validation ----------
+        "citation_validation": (
+            asdict(response.citation_validation)
+            if response.citation_validation
+            else None
+        ),
 
         # ---------- Evidence ----------
         "evidence": evidences,

@@ -1,3 +1,3 @@
-# 任务3交付A
-B负责人：雷玺功。题库为benchmark/benchmark.jsonl，共15题，单跳、多跳、归纳各5题。qid标识题目，gold_answer为参考答案，gold_evidence为切片ID，details保存原文及来源；答案要点逐项关联证据。
-运行python benchmark/read_example.py读取；用validate_benchmark.py校验。语料版本、哈希见manifest.json。A仅将问题送入系统，参考答案留作评分，按题型统计答案质量与证据召回。尚待B与A/D交叉作答、Neo4j路径验证及旧接口映射确认，当前非人工审定金标。
+# B交付A：雷玺功
+chunks字段及既有ID冻结。引用键为chunk_id，正文为content，标题为source_name，来源为source_url；无title/source字段。Evidence.source_id应填chunk_id，回退evidence_id也须为切片ID，不能填document_id。
+benchmark/routing_questions.jsonl含15题，三类各5；答案见benchmark.jsonl。供A对比V1/V2，题型不等于路由。已回查，待人工复核。结构或ID变化先同步；内容变化更新索引、复核题库并重跑。

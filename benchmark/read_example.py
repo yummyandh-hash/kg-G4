@@ -9,8 +9,8 @@ def load_questions(path=None):
 def evidence_recall_at_k(question, ranked_chunk_ids, k):
     if k <= 0:
         raise ValueError('k must be positive')
-    # Deduplicate while preserving ranking. Each gold ID is one evidence group.
-    retrieved = set(list(dict.fromkeys(ranked_chunk_ids))[:k])
+    # Preserve the original top-k budget; duplicates still consume slots.
+    retrieved = set(ranked_chunk_ids[:k])
     groups = [{cid, *question.get('evidence_alternatives',{}).get(cid, [])}
               for cid in question['gold_evidence']]
     return sum(bool(group & retrieved) for group in groups) / len(groups)

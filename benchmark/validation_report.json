@@ -1,0 +1,21 @@
+{
+  "questions": 15,
+  "categories": {
+    "single_hop": 5,
+    "multi_hop": 5,
+    "summary": 5
+  },
+  "source_documents": 8,
+  "short_document_characters": {
+    "任务3B交付A说明.md": 289,
+    "任务3在Stage2中的作用.md": 252
+  },
+  "errors": [],
+  "checks": "结构、哈希、切片及clean正文回查、答案要点关联、路径连接；不自动证明语义正确",
+  "pending": [
+    "B与A/D双人交叉作答",
+    "Neo4j路径验证",
+    "A读取兼容性确认",
+    "三系统评测"
+  ]
+}

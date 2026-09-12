@@ -54,7 +54,11 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
-                    hit_records.append({"name": rec["name"], "attr": rec["attr"], "eid": rec["eid"]})
+                    hit_records.append({
+                        "name": rec["name"] or "",
+                        "attr": rec["attr"] or "",
+                        "eid": rec["eid"] or ""
+                    })
             # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
             hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
             for rec in hit_records:
@@ -62,6 +66,8 @@ class GraphRetriever(BaseRetriever):
                 attr = rec["attr"]
                 eid = rec["eid"]
                 content = f"项目名称：{name}，属性信息：{attr}"
+                # 防御：entity_ids 不用None，空返回空列表
+                entity_ids = [eid] if eid else []
                 ev = Evidence(
                     evidence=content,
                     score=0.80,
@@ -77,8 +83,7 @@ class GraphRetriever(BaseRetriever):
                     source_org="",
                     retrieved_at=datetime.now().isoformat(),
                     source_batch="neo4j_node",
-                    # 节点证据，entity_ids填当前节点id，relation_path为空
-                    entity_ids=[eid] if eid else None,
+                    entity_ids=entity_ids,
                     relation_path=None
                 )
                 node_evidences.append(ev)
@@ -120,14 +125,16 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_onehop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    src = rec["src"]
-                    rel_type = rec["rel"]
-                    target = rec["target"]
-                    src_eid = rec["src_eid"]
-                    target_eid = rec["target_eid"]
+                    src = rec["src"] or ""
+                    rel_type = rec["rel"] or ""
+                    target = rec["target"] or ""
+                    src_eid = rec["src_eid"] or ""
+                    target_eid = rec["target_eid"] or ""
+
                     path_text = f"{src} --[{rel_type}]--> {target}"
-                    # 构造图谱渲染字段
-                    entity_ids = [src_eid, target_eid]
+                    # 构造图谱渲染字段，过滤空id
+                    raw_entity_ids = [src_eid, target_eid]
+                    entity_ids = [x for x in raw_entity_ids if x]
                     relation_path: List[Dict] = [
                         {
                             "source": src_eid,
@@ -174,17 +181,19 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_twohop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    src = rec["src"]
-                    rel1 = rec["rel1"]
-                    mid_node = rec["mid_node"]
-                    rel2 = rec["rel2"]
-                    target = rec["target"]
-                    src_eid = rec["src_eid"]
-                    mid_eid = rec["mid_eid"]
-                    target_eid = rec["target_eid"]
+                    src = rec["src"] or ""
+                    rel1 = rec["rel1"] or ""
+                    mid_node = rec["mid_node"] or ""
+                    rel2 = rec["rel2"] or ""
+                    target = rec["target"] or ""
+                    src_eid = rec["src_eid"] or ""
+                    mid_eid = rec["mid_eid"] or ""
+                    target_eid = rec["target_eid"] or ""
+
                     path_text = f"{src} --[{rel1}]--> {mid_node} --[{rel2}]--> {target}"
-                    # 两跳：三个节点id，两条关系
-                    entity_ids = [src_eid, mid_eid, target_eid]
+                    # 两跳：三个节点id，两条关系，过滤空id
+                    raw_entity_ids = [src_eid, mid_eid, target_eid]
+                    entity_ids = [x for x in raw_entity_ids if x]
                     relation_path: List[Dict] = [
                         {"source": src_eid, "target": mid_eid, "relation": rel1},
                         {"source": mid_eid, "target": target_eid, "relation": rel2}

@@ -1,0 +1,15 @@
+{"qid": "ich_bench_01", "question": "按板头曲项目正文，板头曲的传播中心在哪座城市？", "question_category": "single_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_02", "question": "按爬山调项目正文，山区爬山调和平原爬山调分别以哪里为代表？", "question_category": "single_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_03", "question": "锅庄舞的“郭卓”和“枯卓”分别指什么舞步？", "question_category": "single_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_04", "question": "按花鼓戏项目正文，皖南花鼓戏的四大主腔是什么？", "question_category": "single_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_05", "question": "按石家庄丝弦项目正文，文场的“四架弦”包含哪些乐器？", "question_category": "single_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_06", "question": "按板头曲项目正文，1953年代表河南参加全国第一届民间音乐舞蹈会演的板头曲传人是谁？正文明确说由他传谱并远播海外的两首筝曲是什么？", "question_category": "multi_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_07", "question": "按花鼓戏项目正文，以湘北方言演唱的花鼓戏是哪一种？该种花鼓戏的声腔音乐分哪两大类？", "question_category": "multi_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_08", "question": "按普安苗族芦笙舞正文，被称为“歪梳苗”的是哪一苗人群体？该群体的芦笙舞主要流传在普安县哪两个乡镇？", "question_category": "multi_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_09", "question": "按花鼓戏项目正文，“花鼓大走场”被称为哪一种花鼓戏的绝活儿？正文列出的该种花鼓戏主要曲调包括什么？", "question_category": "multi_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_10", "question": "按乌珠穆沁长调项目正文，核心分布在西乌珠穆沁旗和东乌珠穆沁旗的长调叫什么？它在民俗场合的副歌对唱部分叫什么、一般由什么乐器伴奏？", "question_category": "multi_hop", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_11", "question": "仅根据恩施摆手舞正文，概括摆手舞的主要表现内容、最显著的手脚配合特征和文中列出的社会功能。", "question_category": "summary", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_12", "question": "仅根据甘孜锅庄正文，概括其表演的领舞设置、男女唱跳配合方式和节奏变化。", "question_category": "summary", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_13", "question": "仅根据乌珠穆沁长调正文，概括其过去、新中国成立后以及文中所述当下三个阶段的传承方式。", "question_category": "summary", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_14", "question": "仅根据爬山调正文，从移民带来的民歌交流、唱词特点和旋律结构三个方面概括其艺术形成与表现。", "question_category": "summary", "review_status": "pending_human_cross_review"}
+{"qid": "ich_bench_15", "question": "仅根据石家庄丝弦正文，概括其唱腔的真假声运用、表演动作风格及文中记录的剧团困境；困境按材料记载回答，不视作当前调查。", "question_category": "summary", "review_status": "pending_human_cross_review"}

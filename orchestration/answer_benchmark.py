@@ -198,6 +198,7 @@ def _benchmark_item_from_dict(data: dict) -> AnswerBenchmarkItem:
                 data,
                 "question_type",
                 "query_type",
+                "question_category",
                 "type",
                 "category",
                 default="unknown",

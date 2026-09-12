@@ -233,7 +233,7 @@ KG_G5_ROUTER_V2_MODEL=outputs/router_v2.json
 
 ### 3.6 引用校验服务接入
 
-任务 2 提供的 `CitationService` 当前按可选依赖接入。A 侧不会直接强依赖该模块，避免在 `citation_service.py` 尚未提交时影响主链路和 CI。
+任务 2 提供的 `CitationService` 当前按可选依赖接入。B 侧实现已放入 `orchestration/citation_service.py`、`orchestration/evidence_index.py` 和 `orchestration/citation_verifier.py`，默认不启用，避免影响主链路和 CI。
 
 启用方式：
 
@@ -244,7 +244,7 @@ KG_G5_CITATION_ENABLED=1
 启用后，`build_stage1_query_service()` 会尝试加载：
 
 ```python
-from citation_service import CitationService
+from orchestration.citation_service import CitationService
 CitationService("data/chunks/chunks.jsonl")
 ```
 
@@ -255,6 +255,8 @@ verify_claim(answer, chunk_ids)
 ```
 
 返回结果会写入 `AnswerResponse.citation_validation`，并在 `/query` 和 `/explanation` 输出中保留。若服务不可用或未启用，该字段为 `None`，不影响原有问答流程。
+
+B-chunks-v1 字段契约已经冻结：引用校验真实键为 `chunk_id`。A 侧约定 `Evidence.source_id` 必须映射为 `chunk_id`，`evidence_id` 的回退值也必须是真实切片 ID；不能用 `document_id` 冒充切片 ID。
 
 ### 3.7 任务 3 问答 benchmark 接入
 
@@ -282,7 +284,7 @@ python -m orchestration.answer_benchmark \
 2. `answer_benchmark_summary.json`：按题型统计数量和平均 evidence recall。
 
 说明：
-当前 A 分支已经提供读取和统计入口，但真实 `benchmark/` 目录需要 B 合入后才能跑正式 15 题结果。B 若调整字段名，A 侧已兼容 `question/query` 和 `type/query_type`，但 `qid`、`gold_answer`、`gold_evidence` 建议保持冻结。
+当前 A 分支已经接入 B 的正式 `benchmark/` 目录。B 若调整字段名，A 侧已兼容 `question/query`、`type/query_type` 和 `question_category`，但 `qid`、`gold_answer`、`gold_evidence` 建议保持冻结。
 
 ## 4. 测试
 
@@ -308,7 +310,7 @@ python -m pytest tests
 当前结果：
 
 ```text
-46 passed
+53 passed
 ```
 
 ## 5. 当前完成度

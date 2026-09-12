@@ -40,6 +40,9 @@ def test_load_answer_benchmark_accepts_task3_schema(tmp_path):
                 '"details": {"source": "demo"}}',
                 '{"qid": "q2", "query": "多跳问题", '
                 '"query_type": "multi_hop", "gold_evidence": "chunk-2"}',
+                '{"qid": "q3", "question": "归纳问题", '
+                '"question_category": "summary", '
+                '"gold_evidence": ["chunk-3"]}',
             ]
         ),
         encoding="utf-8",
@@ -47,7 +50,7 @@ def test_load_answer_benchmark_accepts_task3_schema(tmp_path):
 
     items = load_answer_benchmark(path)
 
-    assert len(items) == 2
+    assert len(items) == 3
     assert items[0].qid == "q1"
     assert items[0].question == "单跳问题"
     assert items[0].question_type == "single_hop"
@@ -56,6 +59,7 @@ def test_load_answer_benchmark_accepts_task3_schema(tmp_path):
     assert items[1].question == "多跳问题"
     assert items[1].question_type == "multi_hop"
     assert items[1].gold_evidence == ["chunk-2"]
+    assert items[2].question_type == "summary"
 
 
 def test_run_answer_benchmark_reports_evidence_recall(tmp_path):

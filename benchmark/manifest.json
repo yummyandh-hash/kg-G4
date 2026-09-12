@@ -1,0 +1,26 @@
+{
+  "version": "B-stage2-task3-v1",
+  "owner": "雷玺功",
+  "generated_date": "2026-09-12",
+  "corpus_path": "data/chunks/chunks.jsonl",
+  "corpus_sha256": "d402574e1bf60f9144770138acad668782aea74eddb631d3e90f09978dcb6460",
+  "benchmark_sha256": "a81d841a35d6c0a61dd2d2111d1d3929bd79d140370961edeb6893236887c14d",
+  "clean_documents": {
+    "data/clean/documents/ihchina_002d0d3856d2.json": "3b10df2b6b3fee7c05b8fbfa7c3853c3fd8093dc35b8c336d0f672db5bb37e66",
+    "data/clean/documents/ihchina_002f0878b7c0.json": "804b737b1f3badeaec493578fbc1425cc59c67d2ff4d25a0196a95fdac550749",
+    "data/clean/documents/ihchina_00635509aeb8.json": "b6107a96bd6d6fa68e4fdc1d953e4e9e4cd757bd9beb609c24e17b5aa21b1f58",
+    "data/clean/documents/ihchina_0098187ad030.json": "3126be833121fa72bbdec93b5ac444c8694fc23a9a3c8492d42858083d1a1f6a",
+    "data/clean/documents/ihchina_009d43e2a146.json": "ef41a0023adbdf5dd0d096468b4eb00c73eb48f35e7d233468453061f72bce8e",
+    "data/clean/documents/ihchina_00a45c44cc2a.json": "7e60993f1e8df21d1107a33fde2e68c50c00cd07881c56228e1d2e3a7f76b80a",
+    "data/clean/documents/ihchina_00b1ae0763dc.json": "a6aa22aa8ff6a288f0906bf3c094399714ebc296ce3909ff8ccff70fc35ebe8d",
+    "data/clean/documents/ihchina_00f56170ef94.json": "f01606ff21c67ed51997f6b21d94043ac069cf07d276f463b288363f80728447"
+  },
+  "question_count": 15,
+  "limitations": [
+    "便利抽样，非全语料代表性抽样",
+    "未进行人工双人交叉作答",
+    "未进行Neo4j路径验证或三系统实验",
+    "未回访网页，事实仅据本地项目正文",
+    "未发现A的Benchmark读取器；未更改旧契约，summary映射待确认"
+  ]
+}

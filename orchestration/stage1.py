@@ -69,10 +69,16 @@ def _build_citation_service(chunks_file: str):
     if os.getenv("KG_G5_CITATION_ENABLED") != "1":
         return None
 
-    try:
-        from citation_service import CitationService
+    errors = []
+    for module_name in (
+        "orchestration.citation_service",
+        "citation_service",
+    ):
+        try:
+            module = __import__(module_name, fromlist=["CitationService"])
+            return module.CitationService(chunks_file)
+        except Exception as exc:
+            errors.append(f"{module_name}: {exc}")
 
-        return CitationService(chunks_file)
-    except Exception as exc:
-        print(f"[WARN] Citation service unavailable: {exc}")
-        return None
+    print("[WARN] Citation service unavailable: " + " | ".join(errors))
+    return None

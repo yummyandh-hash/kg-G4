@@ -192,3 +192,38 @@ def test_query_service_with_dependencies():
     assert edge.source == "蜀绣"
     assert edge.target == "四川"
     assert edge.relation == "分布于"
+
+def test_path_edges_supports_stringified_dict():
+    from orchestration.service import _path_edges
+
+    path = [
+        "{'source': 'Project:A', "
+        "'target': 'Region:B', "
+        "'relation': 'LOCATED_IN'}"
+    ]
+
+    result = _path_edges(path)
+
+    assert result == [
+        (
+            "Project:A",
+            "LOCATED_IN",
+            "Region:B",
+        )
+    ]
+
+def test_path_entities_supports_stringified_dict():
+    from orchestration.service import _path_entities
+
+    path = [
+        "{'source': 'Project:A', "
+        "'target': 'Region:B', "
+        "'relation': 'LOCATED_IN'}"
+    ]
+
+    result = _path_entities(path)
+
+    assert result == [
+        "Project:A",
+        "Region:B",
+    ]

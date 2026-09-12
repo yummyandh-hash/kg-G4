@@ -363,24 +363,56 @@ def _build_node_name_map(
 
 def _path_entities(path) -> List[str]:
     """
-    从 relation_path 中提取实体。
+    从 relation_path 中提取实体节点。
 
-    支持：
-    ["A", "R", "B"]
-    ["A", "R1", "B", "R2", "C"]
-    以及 dict 格式。
+    兼容：
+    1. ["A", "REL", "B"]
+    2. [{"source": "A", "relation": "REL", "target": "B"}]
+    3. ["{'source': 'A', 'relation': 'REL', 'target': 'B'}"]
     """
-
     if not path:
         return []
 
-    # D GraphRetriever 当前格式：
-    # [source, relation, target, ...]
-    if all(isinstance(item, str) for item in path):
-        return path[::2]
-
     entities = []
 
+    # --------------------------------------------------
+    # 字符串列表
+    # --------------------------------------------------
+    if all(isinstance(item, str) for item in path):
+
+        # 传统路径：
+        # ["A", "REL", "B", "REL2", "C"]
+        if len(path) >= 3 and len(path) % 2 == 1:
+            return path[::2]
+
+        # --------------------------------------------------
+        # dict 被转换成字符串
+        # --------------------------------------------------
+        import ast
+
+        for item in path:
+            try:
+                parsed = ast.literal_eval(item)
+            except (ValueError, SyntaxError):
+                continue
+
+            if not isinstance(parsed, dict):
+                continue
+
+            source = parsed.get("source")
+            target = parsed.get("target")
+
+            if source:
+                entities.append(str(source))
+
+            if target:
+                entities.append(str(target))
+
+        return list(dict.fromkeys(entities))
+
+    # --------------------------------------------------
+    # 原生 dict 列表
+    # --------------------------------------------------
     for item in path:
         if not isinstance(item, dict):
             continue
@@ -389,36 +421,35 @@ def _path_entities(path) -> List[str]:
         target = item.get("target")
 
         if source:
-            entities.append(source)
+            entities.append(str(source))
 
         if target:
-            entities.append(target)
+            entities.append(str(target))
 
     return list(dict.fromkeys(entities))
 
-
-def _path_edges(
-    path,
-) -> List[tuple[str, str, str]]:
+def _path_edges(path) -> List[tuple[str, str, str]]:
     """
-    从 relation_path 中提取图谱边。
+    将 relation_path 解析为
+    (source, relation, target) 三元组。
 
-    支持：
-    ["A", "R", "B"]
-    ["A", "R1", "B", "R2", "C"]
-    以及 dict 格式。
+    同时兼容：
+    1. ["A", "REL", "B"]
+    2. [{"source": "A", "relation": "REL", "target": "B"}]
+    3. ["{'source': 'A', 'relation': 'REL', 'target': 'B'}"]
     """
-
     if not path:
         return []
 
     edges = []
 
-    # D GraphRetriever 当前格式：
-    # [source, relation, target]
-    # [source, relation1, middle, relation2, target]
+    # --------------------------------------------------
+    # 字符串列表
+    # --------------------------------------------------
     if all(isinstance(item, str) for item in path):
 
+        # 兼容：
+        # ["A", "REL", "B", "REL2", "C"]
         if len(path) >= 3 and len(path) % 2 == 1:
             for i in range(0, len(path) - 2, 2):
                 source = path[i]
@@ -430,11 +461,42 @@ def _path_edges(
                         (source, relation, target)
                     )
 
+            if edges:
+                return edges
+
+        # --------------------------------------------------
+        # 兼容 dict 被转换成字符串
+        # --------------------------------------------------
+        import ast
+
+        for item in path:
+            try:
+                parsed = ast.literal_eval(item)
+            except (ValueError, SyntaxError):
+                continue
+
+            if not isinstance(parsed, dict):
+                continue
+
+            source = parsed.get("source")
+            relation = parsed.get("relation")
+            target = parsed.get("target")
+
+            if source and relation and target:
+                edges.append(
+                    (
+                        str(source),
+                        str(relation),
+                        str(target),
+                    )
+                )
+
         return edges
 
-    # dict 格式
+    # --------------------------------------------------
+    # 原生 dict 列表
+    # --------------------------------------------------
     for item in path:
-
         if not isinstance(item, dict):
             continue
 
@@ -444,7 +506,11 @@ def _path_edges(
 
         if source and relation and target:
             edges.append(
-                (source, relation, target)
+                (
+                    str(source),
+                    str(relation),
+                    str(target),
+                )
             )
 
     return edges
@@ -624,6 +690,10 @@ class QueryService:
             evidences=evidences,
             max_evidence=self.top_k,
         )
+
+        print("========== LLM CONTEXT ==========")
+        print(context)
+        print("=================================")
 
         if self.generator is not None:
             answer = self.generator.generate(

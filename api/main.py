@@ -56,7 +56,7 @@ query_service = build_query_service()
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    """Stage 1 Web Demo."""
+    """Stage 2 Web Demo."""
 
     return """
     <!DOCTYPE html>
@@ -103,7 +103,7 @@ def root():
       <div class="container">
         <div class="header">
           <h1>非遗智谱：AP-ICH-GraphRAG</h1>
-          <p>中国非物质文化遗产知识图谱增强检索系统 · Stage 1 Demo</p>
+          <p>中国非物质文化遗产知识图谱增强检索系统 · Stage 2 Demo</p>
         </div>
         <div class="query-box">
           <div class="query-row">
@@ -121,10 +121,38 @@ def root():
             <div class="card">
               <h2>检索信息</h2>
               <div id="retrieval" class="retrieval-summary">
-                <div class="info-item"><div class="info-label">查询类型</div><div class="info-value">—</div></div>
-                <div class="info-item"><div class="info-label">Retriever</div><div class="info-value">—</div></div>
-                <div class="info-item"><div class="info-label">复杂度</div><div class="info-value">—</div></div>
-                <div class="info-item"><div class="info-label">路由原因</div><div class="info-value">—</div></div>
+                <div class="info-item">
+                  <div class="info-label">查询类型</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Retriever</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">复杂度</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">路由原因</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Evidence 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Path 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">Source 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label">查询耗时</div>
+                  <div class="info-value">—</div>
+                </div>
               </div>
             </div>
             <div class="card"><h2>Evidence 检索证据</h2><div id="evidence"><div class="empty">等待查询...</div></div></div>
@@ -144,11 +172,54 @@ def root():
       <script>
         function escapeHtml(value){const div=document.createElement("div");div.textContent=value==null?"":String(value);return div.innerHTML}
         function renderRetrieval(data){
+          const timing = data.timing || {};
+
           document.getElementById("retrieval").innerHTML=`
-            <div class="info-item"><div class="info-label">查询类型</div><div class="info-value">${escapeHtml(data.query_type||"—")}</div></div>
-            <div class="info-item"><div class="info-label">Retriever</div><div class="info-value">${escapeHtml(data.selected_route||"—")}</div></div>
-            <div class="info-item"><div class="info-label">复杂度</div><div class="info-value">${escapeHtml(data.complexity_score??"—")}</div></div>
-            <div class="info-item"><div class="info-label">路由原因</div><div class="info-value">${escapeHtml(data.route_reason||"—")}</div></div>`;
+            <div class="info-item">
+              <div class="info-label">查询类型</div>
+              <div class="info-value">${escapeHtml(data.query_type || "—")}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Retriever</div>
+              <div class="info-value">${escapeHtml(data.selected_route || "—")}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">复杂度</div>
+              <div class="info-value">${escapeHtml(data.complexity_score ?? "—")}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">路由原因</div>
+              <div class="info-value">${escapeHtml(data.route_reason || "—")}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Evidence 数量</div>
+              <div class="info-value">${escapeHtml(data.evidences?.length ?? 0)}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Path 数量</div>
+              <div class="info-value">${escapeHtml(data.paths?.length ?? 0)}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Source 数量</div>
+              <div class="info-value">${escapeHtml(data.sources?.length ?? 0)}</div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">查询耗时</div>
+              <div class="info-value">
+                ${escapeHtml(
+                  timing.total_ms != null
+                    ? Number(timing.total_ms).toFixed(1) + " ms"
+                    : "—"
+                )}
+              </div>
+            </div>`;
         }
         function renderList(id,items,cls,formatter){
           const el=document.getElementById(id);
@@ -299,6 +370,34 @@ def root():
             svg.appendChild(g);
           });
         }
+
+        function formatRelationPath(path){
+          if(!Array.isArray(path) || path.length === 0){
+            return "";
+          }
+
+          if(
+            path.length >= 3 &&
+            path.length % 2 === 1 &&
+            path.every(item => typeof item === "string")
+          ){
+            const parts = [];
+
+            for(let i = 0; i < path.length - 2; i += 2){
+              if(i === 0){
+                parts.push(path[i]);
+              }
+
+              parts.push("--[" + path[i + 1] + "]-->");
+              parts.push(path[i + 2]);
+            }
+
+            return parts.join(" ");
+          }
+
+          return path.join(" → ");
+        }
+
         async function query(){
           const question=document.getElementById("question").value.trim(),button=document.getElementById("queryButton");
           if(!question){alert("请输入问题");return}
@@ -315,9 +414,46 @@ def root():
             document.getElementById("answer").textContent=data.answer||"暂无回答";
             renderRetrieval(data);
             renderList("evidence",data.evidences,"evidence-item",item=>{
-              if(typeof item==="string")return escapeHtml(item);
-              const content=item.content||item.text||"",source=item.source_url||item.source||"";
-              return `<div>${escapeHtml(content||JSON.stringify(item))}</div>${source?`<div style="margin-top:6px;color:#6b7280;font-size:12px">来源：${escapeHtml(source)}</div>`:""}`;
+              if(typeof item === "string"){
+                return escapeHtml(item);
+              }
+
+              const content = item.content || item.text || "";
+              const source = item.source_url || item.source || "";
+              const method = item.retrieval_method || "—";
+              const score = item.score != null
+                ? Number(item.score).toFixed(4)
+                : "—";
+
+              const path = Array.isArray(item.relation_path)
+                ? formatRelationPath(item.relation_path)
+                : (item.relation_path || "");
+              return `
+                <div style="font-weight:600;margin-bottom:6px">
+                  Evidence ${escapeHtml(item.index ?? "")}
+                </div>
+
+                <div style="margin-bottom:6px">
+                  ${escapeHtml(content)}
+                </div>
+
+                <div style="color:#6b7280;font-size:12px">
+                  检索方式：${escapeHtml(method)}
+                  · 相关性分数：${escapeHtml(score)}
+                </div>
+
+                ${path ? `
+                  <div style="margin-top:6px;color:#6b7280;font-size:12px">
+                    关系路径：${escapeHtml(path)}
+                  </div>
+                ` : ""}
+
+                ${source ? `
+                  <div style="margin-top:6px;color:#6b7280;font-size:12px">
+                    来源：${escapeHtml(source)}
+                  </div>
+                ` : ""}
+              `;
             });
             renderList("paths",data.paths,"path-item",item=>escapeHtml(typeof item==="string"?item:(item.path||item.relation_path||JSON.stringify(item))));
             renderList("sources",data.sources,"source-item",item=>escapeHtml(typeof item==="string"?item:JSON.stringify(item)));
@@ -331,6 +467,7 @@ def root():
     </body>
     </html>
     """
+
 @app.post("/query")
 def query(request: QueryRequest):
     response = query_service.query(
@@ -342,8 +479,10 @@ def query(request: QueryRequest):
     print("graph_edges:", response.graph_edges)
     print("======================================")
 
-    return asdict(response)
+    result = asdict(response)
+    result["explanation"] = build_explanation(response)
 
+    return result
 
 @app.post("/graph", response_model=GraphResponse)
 def graph(request: QueryRequest):

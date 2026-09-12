@@ -69,7 +69,7 @@ class GraphRetriever(BaseRetriever):
                     retriever="graph_retriever",
                     latency=time.time() - t0,
                     document_id=eid or "",
-                    chunk_id=None,
+                    chunk_id="",
                     source_url="",
                     source_name=name,
                     source_category="",
@@ -142,7 +142,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_one_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id=None,
+                        chunk_id="",
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -196,7 +196,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_two_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id=None,
+                        chunk_id="",
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -231,6 +231,7 @@ if __name__ == "__main__":
         print("retriever:", item.retriever)
         print("entity_ids:", item.entity_ids)
         print("relation_path:", item.relation_path)
+        print("chunk_id:", repr(item.chunk_id))
         print("-" * 50)
 
     # 测试 2：不带 context (context=None)，验证兜底覆盖效果
@@ -244,5 +245,6 @@ if __name__ == "__main__":
         print("retriever:", item.retriever)
         print("entity_ids:", item.entity_ids)
         print("relation_path:", item.relation_path)
+        print("chunk_id:", repr(item.chunk_id))
         print("-" * 50)
     gr.close()

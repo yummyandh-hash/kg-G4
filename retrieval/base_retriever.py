@@ -5,12 +5,7 @@ from typing import List, Optional, Dict
 
 @dataclass
 class RetrievalContext:
-    """Stage2 接口冻结规范
-    query_type: fact / relation / comparison / constraint
-    selected_route: vector / graph / hybrid / None
-    """
     query_type: str
-    selected_route: Optional[str] = None
 
 
 @dataclass
@@ -28,7 +23,7 @@ class Evidence:
     retriever: str
     latency: float
     document_id: str
-    chunk_id: str
+    chunk_id: Optional[str]
     source_url: str
     source_name: str
     source_category: str
@@ -36,7 +31,7 @@ class Evidence:
     source_org: str
     retrieved_at: str
     source_batch: str
-    # 供前端图谱渲染
+    # ↓↓↓ 新增：供E前端图谱渲染 ↓↓↓
     entity_ids: Optional[List[str]] = None
     relation_path: Optional[List[Dict]] = None
 

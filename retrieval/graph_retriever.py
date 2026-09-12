@@ -39,6 +39,7 @@ class GraphRetriever(BaseRetriever):
 
         if self.driver is None:
             return []
+
         # 1.双向contains：节点名包含query OR query包含节点名，解决长自然问句内嵌实体的场景
         cypher_node = """
         MATCH (n:InheritProject)
@@ -89,6 +90,7 @@ class GraphRetriever(BaseRetriever):
         query_type = "relation"
         if request.context is not None and request.context.query_type:
             query_type = request.context.query_type
+
         # 只要命中了节点，默认均去查询关系，确保前端拿到 relation_path 绘制关系边
         if len(node_hit_entities) > 0:
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
@@ -107,6 +109,7 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
+
         cypher_onehop = """
         MATCH (h:InheritProject {name:$entity_name})-[r]-(neigh)
         RETURN h.name AS src, type(r) AS rel, neigh.name AS target, h.entity_id AS src_eid, neigh.entity_id AS target_eid
@@ -159,6 +162,7 @@ class GraphRetriever(BaseRetriever):
         res: List[Evidence] = []
         if self.driver is None:
             return res
+
         cypher_twohop = """
         MATCH (h:InheritProject {name:$entity_name})-[r1]-(mid)-[r2]-(neigh2)
         RETURN h.name AS src, type(r1) AS rel1, mid.name AS mid_node, type(r2) AS rel2, neigh2.name AS target,

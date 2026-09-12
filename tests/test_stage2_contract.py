@@ -29,6 +29,7 @@ def test_answer_response_exposes_optional_route_confidence():
     )
 
     assert asdict(response)["route_confidence"] == 0.76
+    assert "citation_validation" in asdict(response)
     assert build_explanation(response)["route_confidence"] == 0.76
 
 
@@ -42,3 +43,4 @@ def test_query_api_keeps_route_confidence_field():
 
     assert response.status_code == 200
     assert "route_confidence" in response.json()
+    assert "citation_validation" in response.json()

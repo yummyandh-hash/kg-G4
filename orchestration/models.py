@@ -69,6 +69,16 @@ class RouteDecision:
 
 
 @dataclass
+class CitationValidation:
+    """Result returned by the optional citation verification service."""
+
+    label: str
+    confidence: float
+    reason: str
+    evidences: List[Dict[str, object]] = field(default_factory=list)
+
+
+@dataclass
 class Document:
     """清洗后的统一文档结构。"""
 
@@ -99,6 +109,7 @@ class AnswerResponse:
     selected_route: str
     route_reason: str
     route_confidence: Optional[float] = None
+    citation_validation: Optional[CitationValidation] = None
 
     evidences: List[Evidence] = field(default_factory=list)
     paths: List[List[Dict[str, str]]] = field(default_factory=list)

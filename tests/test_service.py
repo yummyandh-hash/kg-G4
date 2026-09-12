@@ -47,6 +47,20 @@ class MockAnswerGeneratorForTest:
         return f"answer from evidence: {query}"
 
 
+class MockCitationServiceForTest:
+    def __init__(self):
+        self.calls = []
+
+    def verify_claim(self, claim: str, chunk_ids: list[str]):
+        self.calls.append((claim, chunk_ids))
+        return {
+            "label": "SUPPORTED",
+            "confidence": 0.92,
+            "reason": "answer is supported by retrieved chunks",
+            "evidences": [{"chunk_id": chunk_ids[0]}],
+        }
+
+
 def test_query_service_default():
     service = QueryService()
 
@@ -79,7 +93,9 @@ def test_query_service_default():
     assert "routing" in response.timing
     assert "retrieval" in response.timing
     assert "answer_generation" in response.timing
+    assert "citation_verification" in response.timing
     assert "total" in response.timing
+    assert response.citation_validation is None
 
 
 def test_query_service_with_dependencies():
@@ -122,3 +138,28 @@ def test_query_service_with_dependencies():
     assert edge.source == "蜀绣"
     assert edge.target == "四川"
     assert edge.relation == "分布于"
+
+
+def test_query_service_can_verify_citations():
+    citation_service = MockCitationServiceForTest()
+    service = QueryService(
+        router=MockRouterForTest(),
+        retriever=MockRetrieverForTest(),
+        answer_generator=MockAnswerGeneratorForTest(),
+        citation_service=citation_service,
+    )
+
+    response = service.query("relation question")
+
+    assert citation_service.calls == [
+        (
+            "answer from evidence: relation question",
+            ["test-source-001"],
+        )
+    ]
+    assert response.citation_validation is not None
+    assert response.citation_validation.label == "SUPPORTED"
+    assert response.citation_validation.confidence == 0.92
+    assert response.citation_validation.evidences == [
+        {"chunk_id": "test-source-001"}
+    ]

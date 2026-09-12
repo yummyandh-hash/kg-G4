@@ -34,6 +34,7 @@ def build_stage1_query_service(
     top_k: int = 5,
     router_version: str | None = None,
     router_model_path: str | None = None,
+    citation_service=None,
 ) -> QueryService:
     """Build the real Stage 1 A-D-E query service."""
     retriever = build_stage1_retriever(chunks_file=chunks_file)
@@ -55,5 +56,23 @@ def build_stage1_query_service(
     return QueryService(
         router=router,
         retriever=retriever,
+        citation_service=(
+            citation_service
+            if citation_service is not None
+            else _build_citation_service(chunks_file)
+        ),
         top_k=top_k,
     )
+
+
+def _build_citation_service(chunks_file: str):
+    if os.getenv("KG_G5_CITATION_ENABLED") != "1":
+        return None
+
+    try:
+        from citation_service import CitationService
+
+        return CitationService(chunks_file)
+    except Exception as exc:
+        print(f"[WARN] Citation service unavailable: {exc}")
+        return None

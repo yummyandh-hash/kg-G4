@@ -231,6 +231,31 @@ KG_G5_ROUTER_VERSION=v2
 KG_G5_ROUTER_V2_MODEL=outputs/router_v2.json
 ```
 
+### 3.6 引用校验服务接入
+
+任务 2 提供的 `CitationService` 当前按可选依赖接入。A 侧不会直接强依赖该模块，避免在 `citation_service.py` 尚未提交时影响主链路和 CI。
+
+启用方式：
+
+```text
+KG_G5_CITATION_ENABLED=1
+```
+
+启用后，`build_stage1_query_service()` 会尝试加载：
+
+```python
+from citation_service import CitationService
+CitationService("data/chunks/chunks.jsonl")
+```
+
+查询完成后，A 侧会把最终回答和当前 evidence 的 chunk id 传给：
+
+```python
+verify_claim(answer, chunk_ids)
+```
+
+返回结果会写入 `AnswerResponse.citation_validation`，并在 `/query` 和 `/explanation` 输出中保留。若服务不可用或未启用，该字段为 `None`，不影响原有问答流程。
+
 ## 4. 测试
 
 当前新增和更新的测试包括：
@@ -254,7 +279,7 @@ python -m pytest tests
 当前结果：
 
 ```text
-40 passed
+44 passed
 ```
 
 ## 5. 当前完成度

@@ -33,8 +33,8 @@ def entity_merge_cypher(entity: dict) -> str:
         f"SET n.name = {props['name']}, "
         f"n.canonical_name = {props['canonical_name']}, "
         f"n.aliases = {props['aliases']}, "
-        f"n.attributes = {props['attributes']}, "
-        f"n.provenance = {props['provenance']}"
+        f"n.attributes_json = {props['attributes_json']}, "
+        f"n.provenance_json = {props['provenance_json']};"
     )
 
 
@@ -45,18 +45,22 @@ def relation_merge_cypher(relation: dict) -> str:
         f"MATCH (t {{entity_id: {props['target_entity_id']}}}) "
         f"MERGE (s)-[r:{relation['relation_type']}]->(t) "
         f"SET r.confidence = {props['confidence']}, "
-        f"r.attributes = {props['attributes']}, "
-        f"r.provenance = {props['provenance']}"
+        f"r.attributes_json = {props['attributes_json']}, "
+        f"r.provenance_json = {props['provenance_json']};"
     )
 
 
-def export_cypher(result: ExtractionResult, out_dir: str | Path) -> Path:
+def export_cypher(
+    result: ExtractionResult,
+    out_dir: str | Path,
+    filename: str = "kg_export.cypher",
+) -> Path:
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    cypher_file = out_path / "kg_export.cypher"
+    cypher_file = out_path / filename
     with cypher_file.open("w", encoding="utf-8") as f:
         for stmt in build_constraints_cypher():
-            f.write(stmt + "\n")
+            f.write(stmt.rstrip(";") + ";\n")
         f.write("\n")
         for entity in result.entities:
             f.write(entity_merge_cypher(asdict(entity)) + "\n")
@@ -66,10 +70,14 @@ def export_cypher(result: ExtractionResult, out_dir: str | Path) -> Path:
     return cypher_file
 
 
-def export_json(result: ExtractionResult, out_dir: str | Path) -> Path:
+def export_json(
+    result: ExtractionResult,
+    out_dir: str | Path,
+    filename: str = "kg_export.json",
+) -> Path:
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    json_file = out_path / "kg_export.json"
+    json_file = out_path / filename
     json_file.write_text(
         json.dumps(
             {
@@ -84,11 +92,15 @@ def export_json(result: ExtractionResult, out_dir: str | Path) -> Path:
     return json_file
 
 
-def export_graph_data(result: ExtractionResult, out_dir: str | Path) -> Path:
+def export_graph_data(
+    result: ExtractionResult,
+    out_dir: str | Path,
+    filename: str = "graph_data_for_d.json",
+) -> Path:
     """输出更适合 D 使用的轻量图结构。"""
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
-    graph_file = out_path / "graph_data_for_d.json"
+    graph_file = out_path / filename
     payload = {
         "nodes": [
             {
@@ -122,4 +134,10 @@ def _cypher_map(obj: dict) -> dict[str, str]:
     def q(value: object) -> str:
         return json.dumps(value, ensure_ascii=False)
 
-    return {k: q(v) for k, v in obj.items()}
+    # Neo4j property values不能直接接收任意嵌套Map；复杂字段统一序列化。
+    mapped = {k: q(v) for k, v in obj.items()}
+    if "attributes" in obj:
+        mapped["attributes_json"] = q(json.dumps(obj.get("attributes") or {}, ensure_ascii=False))
+    if "provenance" in obj:
+        mapped["provenance_json"] = q(json.dumps(obj.get("provenance") or [], ensure_ascii=False))
+    return mapped

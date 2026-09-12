@@ -19,6 +19,15 @@ def test_relation_query_routes_to_graph_and_keeps_query_type():
     assert decision.selected_route == "graph"
 
 
+def test_shi_relation_query_routes_to_graph():
+    decision = AnalysisRouter().route(
+        "朝鲜族农乐舞（象帽舞）和吉林省延边朝鲜族自治州是什么关系？"
+    )
+
+    assert decision.query_type == "relation"
+    assert decision.selected_route == "graph"
+
+
 @dataclass
 class DOneHopEvidence:
     evidence: str
@@ -142,6 +151,23 @@ def test_query_service_builds_graph_edges_from_d_one_hop_path():
     assert edge.source == "朝鲜族农乐舞（象帽舞）"
     assert edge.relation == "申报地区"
     assert edge.target == "吉林省延边朝鲜族自治州"
+
+
+def test_query_service_routes_shi_relation_query_to_graph():
+    d_retriever = DOneHopRetriever(use_relation_path=True)
+    graph_adapter = DRetrieverAdapter(d_retriever, retrieval_method="graph")
+    service = QueryService(
+        router=AnalysisRouter(),
+        retriever=RouteDispatchRetriever({"graph": graph_adapter}),
+    )
+
+    response = service.query(
+        "朝鲜族农乐舞（象帽舞）和吉林省延边朝鲜族自治州是什么关系？"
+    )
+
+    assert response.query_type == "relation"
+    assert response.selected_route == "graph"
+    assert len(response.graph_edges) == 1
 
 
 def test_query_analyzer_relation_cue_smoke():

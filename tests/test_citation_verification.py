@@ -5,13 +5,13 @@
 完成针对性验证：有效来源查询、错误ID、完全支持、部分支持、无依据、矛盾、多引用及模型不可用
 """
 
-from citation_service import CitationService
+from orchestration.citation_service import CitationService
 from pathlib import Path
 import json
 
 def run_verification_tests():
     """运行验证测试"""
-    ROOT = Path(__file__).resolve().parent.parent.parent
+    ROOT = Path(__file__).resolve().parent.parent
     CHUNKS_FILE = ROOT / "data" / "chunks" / "chunks.jsonl"
 
     if not CHUNKS_FILE.exists():

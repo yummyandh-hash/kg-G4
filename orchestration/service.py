@@ -1,8 +1,10 @@
+from dataclasses import asdict, is_dataclass
 from time import perf_counter
-from typing import List, Optional, Protocol
+from typing import Any, List, Optional, Protocol
 
 from orchestration.models import (
     AnswerResponse,
+    CitationValidation,
     Evidence,
     GraphEdge,
     GraphNode,
@@ -37,6 +39,17 @@ class AnswerGenerator(Protocol):
         query: str,
         evidences: List[Evidence],
     ) -> str:
+        ...
+
+
+class CitationVerifier(Protocol):
+    """Optional citation verification service provided by Task 2."""
+
+    def verify_claim(
+        self,
+        claim: str,
+        chunk_ids: List[str],
+    ):
         ...
 
 
@@ -79,7 +92,13 @@ class MockRetriever:
                 source_id="mock-source-001",
                 source_url="https://www.ihchina.cn/",
                 entity_ids=["蜀绣", "四川"],
-                relation_path=["蜀绣", "分布于", "四川"],
+                relation_path=[
+                    {
+                        "source": "蜀绣",
+                        "relation": "分布于",
+                        "target": "四川",
+                    }
+                ],
             )
         ]
 
@@ -117,6 +136,7 @@ class QueryService:
         router: Optional[Router] = None,
         retriever: Optional[Retriever] = None,
         answer_generator: Optional[AnswerGenerator] = None,
+        citation_service: Optional[CitationVerifier] = None,
         top_k: int = 5,
     ):
         self.router = router or MockRouter()
@@ -124,6 +144,7 @@ class QueryService:
         self.answer_generator = (
             answer_generator or MockAnswerGenerator()
         )
+        self.citation_service = citation_service
         self.top_k = top_k
 
     def query(self, question: str) -> AnswerResponse:
@@ -159,6 +180,10 @@ class QueryService:
             evidences,
         )
         answer_time = perf_counter() - answer_start
+
+        citation_start = perf_counter()
+        citation_validation = self._verify_citation(answer, evidences)
+        citation_time = perf_counter() - citation_start
 
         # 5. 整理关系路径
         paths = [
@@ -219,6 +244,8 @@ class QueryService:
             complexity_score=context.complexity_score,
             selected_route=decision.selected_route,
             route_reason=decision.reason,
+            route_confidence=decision.confidence,
+            citation_validation=citation_validation,
             evidences=evidences,
             paths=paths,
             sources=sources,
@@ -226,16 +253,46 @@ class QueryService:
                 "routing": route_time,
                 "retrieval": retrieval_time,
                 "answer_generation": answer_time,
+                "citation_verification": citation_time,
                 "total": total_time,
             },
             graph_nodes=graph_nodes,
             graph_edges=graph_edges,
         )
 
+    def _verify_citation(
+        self,
+        answer: str,
+        evidences: List[Evidence],
+    ) -> CitationValidation | None:
+        if self.citation_service is None or not evidences:
+            return None
 
-def _path_entities(path: List[str]) -> List[str]:
+        chunk_ids = _citation_chunk_ids(evidences)
+        if not chunk_ids:
+            return None
+
+        result = self.citation_service.verify_claim(answer, chunk_ids)
+        return _to_citation_validation(result)
+
+
+def _path_entities(path) -> List[str]:
+    if not path:
+        return []
+
+    if all(isinstance(item, dict) for item in path):
+        entities = []
+        for item in path:
+            entities.extend(
+                value
+                for value in (item.get("source"), item.get("target"))
+                if value
+            )
+        return list(dict.fromkeys(entities))
+
     if len(path) < 3:
         return []
+
     return [
         value
         for index, value in enumerate(path)
@@ -243,11 +300,23 @@ def _path_entities(path: List[str]) -> List[str]:
     ]
 
 
-def _path_edges(path: List[str]) -> List[tuple[str, str, str]]:
-    if len(path) < 3:
+def _path_edges(path) -> List[tuple[str, str, str]]:
+    if not path:
         return []
 
     edges = []
+
+    if all(isinstance(item, dict) for item in path):
+        for item in path:
+            source = item.get("source")
+            relation = item.get("relation")
+            target = item.get("target")
+            if source and relation and target:
+                edges.append((source, relation, target))
+        return edges
+
+    if len(path) < 3:
+        return []
 
     for index in range(0, len(path) - 2, 2):
         source = path[index]
@@ -256,3 +325,36 @@ def _path_edges(path: List[str]) -> List[tuple[str, str, str]]:
         edges.append((source, relation, target))
 
     return edges
+
+
+def _citation_chunk_ids(evidences: List[Evidence]) -> List[str]:
+    ids = [
+        evidence.source_id
+        for evidence in evidences
+        if evidence.source_id
+    ]
+    return list(dict.fromkeys(str(item) for item in ids if item))
+
+
+def _to_citation_validation(result: Any) -> CitationValidation:
+    if isinstance(result, CitationValidation):
+        return result
+
+    if is_dataclass(result):
+        data = asdict(result)
+    elif isinstance(result, dict):
+        data = result
+    else:
+        data = {
+            "label": getattr(result, "label"),
+            "confidence": getattr(result, "confidence"),
+            "reason": getattr(result, "reason"),
+            "evidences": getattr(result, "evidences", []),
+        }
+
+    return CitationValidation(
+        label=str(data["label"]),
+        confidence=float(data["confidence"]),
+        reason=str(data.get("reason", "")),
+        evidences=list(data.get("evidences", [])),
+    )

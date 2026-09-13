@@ -1,4 +1,5 @@
 from typing import Dict, List
+from dataclasses import asdict
 
 from orchestration.models import AnswerResponse
 
@@ -11,6 +12,12 @@ def build_explanation(response: AnswerResponse) -> Dict[str, object]:
     return {
         "selected_retriever": response.selected_route,
         "route_reason": response.route_reason,
+        "route_confidence": response.route_confidence,
+        "citation_validation": (
+            asdict(response.citation_validation)
+            if response.citation_validation
+            else None
+        ),
         "evidence": [
             {
                 "evidence_id": evidence.evidence_id,

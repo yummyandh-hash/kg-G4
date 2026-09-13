@@ -5,8 +5,8 @@
 提供与A/E对接的引用校验服务
 """
 
-from evidence_index import EvidenceIndex
-from citation_verifier import CitationVerifier
+from orchestration.evidence_index import EvidenceIndex
+from orchestration.citation_verifier import CitationVerifier
 from typing import Dict, List, Optional
 import json
 from pathlib import Path

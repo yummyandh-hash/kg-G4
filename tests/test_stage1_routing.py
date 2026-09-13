@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import pytest
 
 from orchestration.models import RetrievalContext
 from orchestration.query_analyzer import QueryAnalyzer
@@ -212,6 +213,31 @@ def test_query_service_builds_graph_edges_from_d_one_hop_path():
     assert edge.target == "吉林省延边朝鲜族自治州"
 
 
+@pytest.mark.parametrize("hops", [1, 2])
+def test_d_structured_relation_path_produces_graph_edges(hops):
+    edges = [
+        {"source": "project-1", "relation": "申报地区", "target": "region-1"},
+        {"source": "region-1", "relation": "位于", "target": "province-1"},
+    ][:hops]
+
+    class StructuredRetriever:
+        def retrieve(self, query, context=None, top_k=5):
+            return [{
+                "evidence": "关系证据",
+                "entity_ids": ["project-1", "region-1", "province-1"][:hops + 1],
+                "relation_path": edges,
+            }]
+
+    service = QueryService(
+        router=AnalysisRouter(),
+        retriever=RouteDispatchRetriever({
+            "graph": DRetrieverAdapter(StructuredRetriever(), "graph"),
+        }),
+    )
+    response = service.query("项目与地区有什么关系？")
+    assert [(edge.source, edge.relation, edge.target) for edge in response.graph_edges] == [
+        (edge["source"], edge["relation"], edge["target"]) for edge in edges
+    ]
 def test_query_service_routes_shi_relation_query_to_graph():
     d_retriever = DOneHopRetriever(use_relation_path=True)
     graph_adapter = DRetrieverAdapter(d_retriever, retrieval_method="graph")

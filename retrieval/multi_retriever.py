@@ -69,7 +69,7 @@ class MultiRetriever(BaseRetriever):
             print(f"[PPR WARN] ppr执行失败，退回原有顺序: {e}")
             return graph_evidences
 
-    def retrieve(self, query: str, context: RetrievalContext | None, top_k: int) -> List[Evidence]:
+    def retrieve(self, query: str, context: RetrievalContext | None = None, top_k: int = 5) -> List[Evidence]:
         # 边界保护：context为None时构造空上下文
         if context is None:
             context = RetrievalContext()

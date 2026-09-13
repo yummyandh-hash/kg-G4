@@ -25,34 +25,41 @@ def build_constraints_cypher() -> list[str]:
     ]
 
 
-def entity_merge_cypher(entity: dict) -> str:
-    props = _cypher_map(entity)
+def entity_merge_cypher(entity: dict, include_provenance: bool = False) -> str:
     labels = ":" + entity["entity_type"]
+    set_parts = [
+        f"n.name = {_property_literal(entity['name'])}",
+        f"n.canonical_name = {_property_literal(entity['canonical_name'])}",
+        f"n.aliases = {_property_literal(entity['aliases'])}",
+        f"n.attributes_json = {_property_literal(entity['attributes'])}",
+    ]
+    if include_provenance:
+        set_parts.append(f"n.provenance_json = {_property_literal(entity['provenance'])}")
     return (
-        f"MERGE (n{labels} {{entity_id: {props['entity_id']}}}) "
-        f"SET n.name = {props['name']}, "
-        f"n.canonical_name = {props['canonical_name']}, "
-        f"n.aliases = {props['aliases']}, "
-        f"n.attributes_json = {props['attributes_json']}, "
-        f"n.provenance_json = {props['provenance_json']};"
+        f"MERGE (n{labels} {{entity_id: {_property_literal(entity['entity_id'])}}}) "
+        f"SET {', '.join(set_parts)};"
     )
 
 
-def relation_merge_cypher(relation: dict) -> str:
-    props = _cypher_map(relation)
+def relation_merge_cypher(relation: dict, include_provenance: bool = False) -> str:
+    set_parts = [
+        f"rel.confidence = {_property_literal(relation['confidence'])}",
+        f"rel.attributes_json = {_property_literal(relation['attributes'])}",
+    ]
+    if include_provenance:
+        set_parts.append(f"rel.provenance_json = {_property_literal(relation['provenance'])}")
     return (
-        f"MATCH (s {{entity_id: {props['source_entity_id']}}}) "
-        f"MATCH (t {{entity_id: {props['target_entity_id']}}}) "
-        f"MERGE (s)-[r:{relation['relation_type']}]->(t) "
-        f"SET r.confidence = {props['confidence']}, "
-        f"r.attributes_json = {props['attributes_json']}, "
-        f"r.provenance_json = {props['provenance_json']};"
+        f"MATCH (s {{entity_id: {_property_literal(relation['source_entity_id'])}}}) "
+        f"MATCH (t {{entity_id: {_property_literal(relation['target_entity_id'])}}}) "
+        f"MERGE (s)-[rel:{relation['relation_type']}]->(t) "
+        f"SET {', '.join(set_parts)};"
     )
 
 
 def export_cypher(
     result: ExtractionResult,
     out_dir: str | Path,
+    include_provenance: bool = False,
     filename: str = "kg_export.cypher",
 ) -> Path:
     out_path = Path(out_dir)
@@ -63,10 +70,10 @@ def export_cypher(
             f.write(stmt.rstrip(";") + ";\n")
         f.write("\n")
         for entity in result.entities:
-            f.write(entity_merge_cypher(asdict(entity)) + "\n")
+            f.write(entity_merge_cypher(asdict(entity), include_provenance=include_provenance).rstrip(";") + ";\n")
         f.write("\n")
         for relation in result.relations:
-            f.write(relation_merge_cypher(asdict(relation)) + "\n")
+            f.write(relation_merge_cypher(asdict(relation), include_provenance=include_provenance).rstrip(";") + ";\n")
     return cypher_file
 
 
@@ -130,14 +137,27 @@ def export_graph_data(
     return graph_file
 
 
-def _cypher_map(obj: dict) -> dict[str, str]:
-    def q(value: object) -> str:
+def _property_literal(value: object) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        if all(_is_property_value(item) for item in value):
+            return "[" + ", ".join(_property_literal(item) for item in value) + "]"
+        return json.dumps(json.dumps(value, ensure_ascii=False), ensure_ascii=False)
+    if isinstance(value, tuple):
+        if all(_is_property_value(item) for item in value):
+            return "[" + ", ".join(_property_literal(item) for item in value) + "]"
+        return json.dumps(json.dumps(list(value), ensure_ascii=False), ensure_ascii=False)
+    if isinstance(value, dict):
+        return json.dumps(json.dumps(value, ensure_ascii=False), ensure_ascii=False)
+    return json.dumps(str(value), ensure_ascii=False)
 
-    # Neo4j property values不能直接接收任意嵌套Map；复杂字段统一序列化。
-    mapped = {k: q(v) for k, v in obj.items()}
-    if "attributes" in obj:
-        mapped["attributes_json"] = q(json.dumps(obj.get("attributes") or {}, ensure_ascii=False))
-    if "provenance" in obj:
-        mapped["provenance_json"] = q(json.dumps(obj.get("provenance") or [], ensure_ascii=False))
-    return mapped
+
+def _is_property_value(value: object) -> bool:
+    return isinstance(value, (str, int, float, bool)) or value is None

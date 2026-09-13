@@ -25,3 +25,7 @@ for r in random.sample(relations, 10):
 
 print("\n====质量统计摘要====")
 print(f"去重后实体数:{quality_report['deduped_entity_count']}, 去重后关系数:{quality_report['deduped_relation_count']}")
+risk = quality_report["risk_report"]
+print(f"文化碎片风险数:{risk['cultural_fragment_count']}")
+if risk["cultural_fragment_samples"]:
+    print(f"可疑文化元素样例:{risk['cultural_fragment_samples'][:10]}")

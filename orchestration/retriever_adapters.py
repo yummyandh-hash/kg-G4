@@ -35,12 +35,16 @@ class RouteDispatchRetriever:
         enable_query_rewrite: bool = True,
         enable_rerank: bool = True,
         enable_graph_vector_support: bool = True,
+        enable_neighbor_expansion: bool = True,
+        neighbor_window: int = 2,
     ):
         self.retrievers = retrievers
         self.vector_candidate_k = vector_candidate_k
         self.enable_query_rewrite = enable_query_rewrite
         self.enable_rerank = enable_rerank
         self.enable_graph_vector_support = enable_graph_vector_support
+        self.enable_neighbor_expansion = enable_neighbor_expansion
+        self.neighbor_window = neighbor_window
 
     def retrieve(
         self,
@@ -173,14 +177,57 @@ class RouteDispatchRetriever:
 
         candidates = _dedupe_evidences(candidates)
         if self.enable_rerank:
-            candidates = _rerank_vector_evidences(query_variants, candidates)
+            candidates = _rerank_vector_evidences(
+                query_variants,
+                candidates,
+                context,
+            )
         else:
             candidates.sort(
                 key=lambda evidence: evidence.score or 0.0,
                 reverse=True,
             )
 
+        if (
+            self.enable_neighbor_expansion
+            and _should_expand_neighbors(context, query)
+        ):
+            candidates = self._expand_neighbor_evidences(
+                query_variants,
+                candidates,
+                context,
+            )
+
         return candidates[:limit]
+
+    def _expand_neighbor_evidences(
+        self,
+        query_variants: list[str],
+        candidates: list[Evidence],
+        context: RetrievalContext,
+    ) -> list[Evidence]:
+        lexical = self.retrievers.get("lexical")
+        if not hasattr(lexical, "expand_neighbors"):
+            return candidates
+
+        neighbors = lexical.expand_neighbors(
+            candidates[: max(context.top_k * 2, 8)],
+            window=self.neighbor_window,
+            limit=max(context.top_k * self.neighbor_window * 2, 12),
+        )
+        if not neighbors:
+            return candidates
+
+        expanded = _dedupe_evidences([*candidates, *neighbors])
+        if self.enable_rerank:
+            return _rerank_vector_evidences(
+                query_variants,
+                expanded,
+                context,
+            )
+
+        expanded.sort(key=lambda evidence: evidence.score or 0.0, reverse=True)
+        return expanded
 
     def _merge_graph_and_vector(
         self,
@@ -330,13 +377,83 @@ def _dedupe_evidences(evidences: list[Evidence]) -> list[Evidence]:
     return rows
 
 
+def _should_expand_neighbors(
+    context: RetrievalContext | None,
+    query: str,
+) -> bool:
+    if context is not None:
+        if context.selected_route in {"graph", "hybrid"}:
+            return True
+        if context.complexity_score >= 0.45:
+            return True
+        if context.query_type in {"constraint", "comparison"}:
+            return True
+
+    return any(cue in query for cue in _NEIGHBOR_EXPANSION_CUES)
+
+
+def _document_stats(evidences: list[Evidence]) -> dict[str, dict[str, Any]]:
+    stats: dict[str, dict[str, Any]] = {}
+    for evidence in evidences:
+        parsed = _parse_content_chunk_id(
+            evidence.source_id or evidence.evidence_id or ""
+        )
+        if parsed is None:
+            continue
+        document_id, chunk_index = parsed
+        row = stats.setdefault(
+            document_id,
+            {
+                "count": 0,
+                "indices": set(),
+            },
+        )
+        row["count"] += 1
+        if chunk_index is not None:
+            row["indices"].add(chunk_index)
+    return stats
+
+
+def _doc_aware_bonus(
+    evidence: Evidence,
+    doc_stats: dict[str, dict[str, Any]],
+) -> float:
+    parsed = _parse_content_chunk_id(
+        evidence.source_id or evidence.evidence_id or ""
+    )
+    if parsed is None:
+        return 0.0
+
+    document_id, chunk_index = parsed
+    stats = doc_stats.get(document_id)
+    if not stats:
+        return 0.0
+
+    count = int(stats["count"])
+    indices = stats["indices"]
+    bonus = min(0.28, max(0, count - 1) * 0.07)
+
+    if chunk_index is not None and (
+        chunk_index - 1 in indices or chunk_index + 1 in indices
+    ):
+        bonus += 0.12
+
+    if evidence.retrieval_method == "neighbor_expansion":
+        bonus += 0.08
+
+    return bonus
+
+
 def _rerank_vector_evidences(
     query_variants: list[str],
     evidences: list[Evidence],
+    context: RetrievalContext | None = None,
 ) -> list[Evidence]:
     query_text = " ".join(query_variants)
     terms = _lexical_terms(query_text)
     important_terms = _important_query_terms(query_text)
+    doc_stats = _document_stats(evidences)
+    use_doc_aware = _should_expand_neighbors(context, query_text)
 
     def score(evidence: Evidence) -> float:
         base = (evidence.score or 0.0) * 0.55
@@ -345,7 +462,12 @@ def _rerank_vector_evidences(
         exact = 0.1 if _has_exact_query_term(query_variants, text) else 0.0
         important = _important_term_score(important_terms, text)
         chunk_type = _chunk_type_bonus(evidence)
-        return base + lexical + exact + important + chunk_type
+        doc_aware = (
+            _doc_aware_bonus(evidence, doc_stats)
+            if use_doc_aware
+            else 0.0
+        )
+        return base + lexical + exact + important + chunk_type + doc_aware
 
     return sorted(evidences, key=score, reverse=True)
 
@@ -426,6 +548,23 @@ def _has_exact_query_term(query_variants: list[str], text: str) -> bool:
     return False
 
 
+def _parse_content_chunk_id(chunk_id: str) -> tuple[str, int | None] | None:
+    if "_content" not in chunk_id:
+        return None
+
+    document_id, _, suffix = chunk_id.partition("_content")
+    if not document_id:
+        return None
+
+    if not suffix:
+        return document_id, None
+
+    if suffix.startswith("_") and suffix[1:].isdigit():
+        return document_id, int(suffix[1:])
+
+    return document_id, None
+
+
 def _unique_non_empty(values: Iterable[str]) -> list[str]:
     rows = []
     seen = set()
@@ -452,6 +591,21 @@ _QUERY_STOP_TERMS = {
     "项目",
 }
 
+_NEIGHBOR_EXPANSION_CUES = {
+    "分别",
+    "概括",
+    "总结",
+    "说明",
+    "归纳",
+    "主要内容",
+    "社会功能",
+    "传承方式",
+    "发展阶段",
+    "结合材料",
+    "根据正文",
+    "多跳",
+}
+
 
 class ChunkLexicalRetriever:
     """A-side lexical fallback over B chunks for exact-term evidence recall."""
@@ -465,6 +619,19 @@ class ChunkLexicalRetriever:
             ).splitlines()
             if line.strip()
         ]
+        self.rows_by_chunk_id = {
+            row.get("chunk_id", ""): row
+            for row in self.rows
+            if row.get("chunk_id")
+        }
+        self.rows_by_doc_index = {}
+        for row in self.rows:
+            parsed = _parse_content_chunk_id(row.get("chunk_id", ""))
+            if parsed is None:
+                continue
+            document_id, chunk_index = parsed
+            if chunk_index is not None:
+                self.rows_by_doc_index[(document_id, chunk_index)] = row
 
     def retrieve(
         self,
@@ -489,6 +656,57 @@ class ChunkLexicalRetriever:
             for score, row in scored[: context.top_k]
         ]
 
+    def expand_neighbors(
+        self,
+        evidences: list[Evidence],
+        *,
+        window: int = 2,
+        limit: int = 20,
+    ) -> list[Evidence]:
+        rows = []
+        seen = {
+            evidence.source_id or evidence.evidence_id
+            for evidence in evidences
+        }
+
+        for evidence in evidences:
+            parsed = _parse_content_chunk_id(
+                evidence.source_id or evidence.evidence_id or ""
+            )
+            if parsed is None:
+                continue
+            document_id, chunk_index = parsed
+            if chunk_index is None:
+                continue
+
+            for offset in range(-window, window + 1):
+                if offset == 0:
+                    continue
+                neighbor_index = chunk_index + offset
+                if neighbor_index < 0:
+                    continue
+
+                row = self.rows_by_doc_index.get(
+                    (document_id, neighbor_index)
+                )
+                if not row:
+                    continue
+
+                chunk_id = row.get("chunk_id", "")
+                if not chunk_id or chunk_id in seen:
+                    continue
+
+                parent_score = evidence.score or 0.0
+                score = max(0.0, parent_score - abs(offset) * 0.03)
+                rows.append((score, row))
+                seen.add(chunk_id)
+
+        rows.sort(key=lambda item: item[0], reverse=True)
+        return [
+            self._to_evidence(row, score, retrieval_method="neighbor_expansion")
+            for score, row in rows[:limit]
+        ]
+
     def _score_row(
         self,
         row: dict[str, str],
@@ -500,18 +718,26 @@ class ChunkLexicalRetriever:
         text = f"{source_name} {content}"
         important = _important_term_score(important_terms, text)
         lexical = _lexical_overlap_score(terms, text)
+        if important <= 0 and lexical <= 0:
+            return 0.0
         chunk_type = row.get("chunk_type", "")
         type_bonus = 0.12 if chunk_type == "detail_content" else -0.08
         return important + lexical + type_bonus
 
-    def _to_evidence(self, row: dict[str, str], score: float) -> Evidence:
+    def _to_evidence(
+        self,
+        row: dict[str, str],
+        score: float,
+        *,
+        retrieval_method: str = "lexical",
+    ) -> Evidence:
         chunk_id = row.get("chunk_id", "")
         content = row.get("content", "")
         source_name = row.get("source_name", "")
         return Evidence(
             evidence_id=chunk_id,
             content=f"{source_name}\n{content}" if source_name else content,
-            retrieval_method="lexical",
+            retrieval_method=retrieval_method,
             score=score,
             source_id=chunk_id,
             source_url=row.get("source_url") or None,

@@ -1,5 +1,10 @@
+import json
+
 from orchestration.models import Evidence, RetrievalContext
-from orchestration.retriever_adapters import RouteDispatchRetriever
+from orchestration.retriever_adapters import (
+    ChunkLexicalRetriever,
+    RouteDispatchRetriever,
+)
 
 
 class FakeSingleRouteRetriever:
@@ -184,3 +189,71 @@ def test_graph_route_adds_vector_support_even_for_fact_queries():
         "graph",
         "vector",
     ]
+
+
+def test_complex_query_expands_neighbor_chunks(tmp_path):
+    chunks_file = tmp_path / "chunks.jsonl"
+    rows = [
+        {
+            "chunk_id": "doc_a_content_1",
+            "content": "opening context",
+            "source_name": "doc a",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_a_content_2",
+            "content": "matched summary anchor",
+            "source_name": "doc a",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_a_content_3",
+            "content": "neighbor evidence that completes the answer",
+            "source_name": "doc a",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+    ]
+    chunks_file.write_text(
+        "\n".join(json.dumps(row) for row in rows),
+        encoding="utf-8",
+    )
+
+    vector = FakeSingleRouteRetriever("vector", 0.95)
+    vector.retrieve = lambda query, context: [
+        Evidence(
+            evidence_id="doc_a_content_2",
+            content="matched summary anchor",
+            retrieval_method="vector",
+            score=0.95,
+            source_id="doc_a_content_2",
+        )
+    ]
+    dispatcher = RouteDispatchRetriever(
+        {
+            "vector": vector,
+            "lexical": ChunkLexicalRetriever(chunks_file),
+        },
+        vector_candidate_k=5,
+        neighbor_window=1,
+    )
+
+    evidences = dispatcher.retrieve(
+        "summary question with main content",
+        RetrievalContext(
+            query_type="constraint",
+            complexity_score=0.55,
+            top_k=3,
+            selected_route="vector",
+        ),
+    )
+
+    assert {"doc_a_content_1", "doc_a_content_3"} & {
+        evidence.source_id for evidence in evidences
+    }
+    assert any(
+        evidence.retrieval_method == "neighbor_expansion"
+        for evidence in evidences
+    )

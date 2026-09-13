@@ -79,6 +79,10 @@ def _router_v2_model_path(router_model_path: str | None) -> str | None:
     if default_model.exists():
         return str(default_model)
 
+    packaged_model = Path(__file__).with_name("router_v2.json")
+    if packaged_model.exists():
+        return str(packaged_model)
+
     return None
 
 

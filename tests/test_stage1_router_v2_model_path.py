@@ -34,4 +34,4 @@ def test_missing_router_v2_model_path_returns_none(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("KG_G5_ROUTER_V2_MODEL", raising=False)
 
-    assert _router_v2_model_path(None) is None
+    assert _router_v2_model_path(None).endswith("orchestration\\router_v2.json")

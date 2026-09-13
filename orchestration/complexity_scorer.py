@@ -1,5 +1,5 @@
 class ComplexityScorer:
-    """基于查询表面特征的复杂度评分器 V0。"""
+    """Rule-based query complexity scorer for Stage 1 routing."""
 
     MULTI_ENTITY_CUES = ("和", "与", "及", "以及")
     COMPARISON_CUES = ("区别", "不同", "异同", "比较", "共同点", "差异")

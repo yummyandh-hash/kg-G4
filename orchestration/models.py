@@ -9,11 +9,12 @@ class RetrievalContext:
     query_type: str
     complexity_score: float
     top_k: int = 5
+    selected_route: Optional[str] = None
 
 
 @dataclass
 class Evidence:
-    """Retriever 返回给 A 的一条检索证据。"""
+    """Retriever 返回的一条检索证据。"""
 
     evidence_id: str
     content: str
@@ -28,6 +29,35 @@ class Evidence:
 
 
 @dataclass
+class GraphNode:
+    """知识图谱节点。"""
+
+    node_id: str
+    label: str
+    properties: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class GraphEdge:
+    """知识图谱关系。"""
+
+    source: str
+    target: str
+    relation: str
+    properties: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class Source:
+    """原始证据来源。"""
+
+    source_id: str
+    title: str
+    url: str
+    content: str
+
+
+@dataclass
 class RouteDecision:
     """Adaptive Router 输出的路由决策结果。"""
 
@@ -35,6 +65,7 @@ class RouteDecision:
     complexity_score: float
     selected_route: str
     reason: str
+
 
 @dataclass
 class Document:
@@ -44,6 +75,7 @@ class Document:
     title: str
     content: str
     source_url: str
+
 
 class Retriever(Protocol):
     """所有 Retriever 需要遵守的统一接口。"""
@@ -70,3 +102,7 @@ class AnswerResponse:
     paths: List[List[str]] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
     timing: Dict[str, float] = field(default_factory=dict)
+
+    # Stage 1 可解释性信息
+    graph_nodes: List[GraphNode] = field(default_factory=list)
+    graph_edges: List[GraphEdge] = field(default_factory=list)

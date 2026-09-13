@@ -198,7 +198,44 @@ class RouteDispatchRetriever:
                 context,
             )
 
+        if _is_summary_context(context, query):
+            candidates = self._prioritize_summary_evidences(
+                query,
+                query_variants,
+                support_evidences or [],
+                candidates,
+                context,
+            )
+
         return candidates[:limit]
+
+    def _prioritize_summary_evidences(
+        self,
+        query: str,
+        query_variants: list[str],
+        support_evidences: list[Evidence],
+        candidates: list[Evidence],
+        context: RetrievalContext,
+    ) -> list[Evidence]:
+        lexical = self.retrievers.get("lexical")
+        if not hasattr(lexical, "summary_evidences"):
+            return candidates
+
+        summary_evidences = lexical.summary_evidences(
+            query,
+            support_evidences=support_evidences,
+            candidate_evidences=candidates,
+            limit=max(context.top_k, 5),
+        )
+        if not summary_evidences:
+            return candidates
+
+        reranked_rest = _rerank_vector_evidences(
+            query_variants,
+            candidates,
+            context,
+        )
+        return _dedupe_evidences([*summary_evidences, *reranked_rest])
 
     def _expand_neighbor_evidences(
         self,
@@ -392,6 +429,21 @@ def _should_expand_neighbors(
     return any(cue in query for cue in _NEIGHBOR_EXPANSION_CUES)
 
 
+def _is_summary_context(
+    context: RetrievalContext | None,
+    query: str,
+) -> bool:
+    if any(cue in query for cue in _SUMMARY_CUES):
+        return True
+    if context is None:
+        return False
+    return (
+        context.query_type == "constraint"
+        and context.complexity_score >= 0.45
+        and any(cue in query for cue in _NEIGHBOR_EXPANSION_CUES)
+    )
+
+
 def _document_stats(evidences: list[Evidence]) -> dict[str, dict[str, Any]]:
     stats: dict[str, dict[str, Any]] = {}
     for evidence in evidences:
@@ -565,6 +617,134 @@ def _parse_content_chunk_id(chunk_id: str) -> tuple[str, int | None] | None:
     return document_id, None
 
 
+def _row_document_id(row: dict[str, str]) -> str | None:
+    parsed = _parse_content_chunk_id(row.get("chunk_id", ""))
+    if parsed is None:
+        return None
+    return parsed[0]
+
+
+def _summary_aspects(query: str) -> list[str]:
+    text = query.strip()
+    from_match = re.search(r"从(.{2,80}?)(?:三个方面|三方面)", text)
+    if from_match:
+        text = from_match.group(1)
+    else:
+        for prefix in ("概括", "总结", "归纳", "说明"):
+            if prefix in text:
+                text = text.split(prefix, 1)[1]
+                break
+
+    text = re.sub(r"^(其|它|该项目|项目|正文)?的?", "", text)
+    text = re.sub(r"^从", "", text)
+    text = re.sub(r"(三个方面|三方面|方面)$", "", text)
+    parts = re.split(r"[、，,；;。]|以及|和|与|及", text)
+    aspects = []
+    for part in parts:
+        cleaned = re.sub(
+            r"(三个方面|三方面|方面|特征|特点)$",
+            "",
+            part.strip(),
+        )
+        cleaned = cleaned.strip(" 的其。；;，,、")
+        if len(cleaned) >= 2:
+            aspects.append(cleaned)
+
+    return _unique_non_empty(aspects[:6])
+
+
+def _summary_terms(text: str) -> list[str]:
+    core = _summary_core_text(text)
+    terms = [core, text]
+    terms.extend(_char_ngrams(core, 2))
+    terms.extend(_char_ngrams(core, 3))
+    return _unique_non_empty(
+        term
+        for term in terms
+        if len(term) >= 2 and term not in _QUERY_STOP_TERMS
+    )
+
+
+def _summary_core_text(text: str) -> str:
+    core = text
+    for phrase in (
+        "表演的",
+        "配合方式",
+        "方式",
+        "设置",
+        "变化",
+        "特征",
+        "特点",
+        "主要",
+        "内容",
+        "方面",
+        "艺术形成",
+        "表现",
+        "其",
+        "的",
+    ):
+        core = core.replace(phrase, "")
+    return core.strip() or text.strip()
+
+
+def _summary_core_bonus(core: str, text: str) -> float:
+    normalized = text or ""
+    bonus = 0.0
+    for term in _char_ngrams(core, 2):
+        if term in _SUMMARY_BROAD_TERMS:
+            continue
+        if term in normalized:
+            bonus += 0.08
+    return min(0.24, bonus)
+
+
+def _title_matches_anchor(source_name: str, anchor: str) -> bool:
+    if not anchor:
+        return False
+    raw_source = re.sub(r"\s+", "", source_name)
+    raw_target = re.sub(r"\s+", "", anchor)
+    if raw_source and raw_target and (
+        raw_target in raw_source or raw_source in raw_target
+    ):
+        return True
+
+    source = _normalize_title(source_name)
+    target = _normalize_title(anchor)
+    return bool(source and target and (target in source or source in target))
+
+
+def _normalize_title(value: str) -> str:
+    value = re.sub(r"[（(].*?[）)]", "", value)
+    value = re.sub(r"\s+", "", value)
+    return value.strip()
+
+
+def _document_hints_from_graph(evidences: list[Evidence]) -> set[str]:
+    hints: set[str] = set()
+    for evidence in evidences:
+        for entity_id in evidence.entity_ids:
+            hints.update(_document_ids_from_text(entity_id))
+        for relation in evidence.relation_path:
+            hints.update(_document_ids_from_text(relation.get("source", "")))
+            hints.update(_document_ids_from_text(relation.get("target", "")))
+    return hints
+
+
+def _document_hints_from_chunks(evidences: list[Evidence]) -> set[str]:
+    hints: set[str] = set()
+    for evidence in evidences:
+        parsed = _parse_content_chunk_id(
+            evidence.source_id or evidence.evidence_id or ""
+        )
+        if parsed is not None:
+            hints.add(parsed[0])
+    return hints
+
+
+def _document_ids_from_text(value: str) -> set[str]:
+    return set(re.findall(r"ihchina_[0-9a-f]{12}", value or ""))
+
+
 def _unique_non_empty(values: Iterable[str]) -> list[str]:
     rows = []
     seen = set()
@@ -604,6 +784,27 @@ _NEIGHBOR_EXPANSION_CUES = {
     "结合材料",
     "根据正文",
     "多跳",
+}
+
+_SUMMARY_CUES = {
+    "概括",
+    "总结",
+    "归纳",
+    "主要内容",
+    "社会功能",
+    "传承方式",
+    "正文",
+}
+
+_SUMMARY_BROAD_TERMS = {
+    "男女",
+    "表演",
+    "方式",
+    "设置",
+    "变化",
+    "特征",
+    "特点",
+    "内容",
 }
 
 
@@ -706,6 +907,141 @@ class ChunkLexicalRetriever:
             self._to_evidence(row, score, retrieval_method="neighbor_expansion")
             for score, row in rows[:limit]
         ]
+
+    def summary_evidences(
+        self,
+        query: str,
+        *,
+        support_evidences: list[Evidence],
+        candidate_evidences: list[Evidence],
+        limit: int = 5,
+    ) -> list[Evidence]:
+        aspects = _summary_aspects(query)
+        if not aspects:
+            return []
+
+        document_id = self._summary_document_id(
+            query,
+            support_evidences,
+            candidate_evidences,
+            aspects,
+        )
+        if not document_id:
+            return []
+
+        rows = [
+            row
+            for row in self.rows
+            if _row_document_id(row) == document_id
+        ]
+        if not rows:
+            return []
+
+        selected: list[tuple[float, dict[str, str]]] = []
+        seen: set[str] = set()
+
+        for aspect in aspects:
+            scored = [
+                (
+                    self._summary_row_score(row, [aspect]),
+                    row,
+                )
+                for row in rows
+            ]
+            scored = [
+                (score, row)
+                for score, row in scored
+                if score > 0 and row.get("chunk_id") not in seen
+            ]
+            if not scored:
+                continue
+            score, row = max(scored, key=lambda item: item[0])
+            selected.append((score + 0.35, row))
+            seen.add(row.get("chunk_id", ""))
+
+        fill_rows = sorted(
+            (
+                (self._summary_row_score(row, aspects), row)
+                for row in rows
+                if row.get("chunk_id") not in seen
+            ),
+            key=lambda item: item[0],
+            reverse=True,
+        )
+        for score, row in fill_rows:
+            if len(selected) >= limit:
+                break
+            if score <= 0:
+                continue
+            selected.append((score, row))
+            seen.add(row.get("chunk_id", ""))
+
+        return [
+            self._to_evidence(
+                row,
+                score,
+                retrieval_method="summary_document",
+            )
+            for score, row in selected[:limit]
+        ]
+
+    def _summary_document_id(
+        self,
+        query: str,
+        support_evidences: list[Evidence],
+        candidate_evidences: list[Evidence],
+        aspects: list[str],
+    ) -> str | None:
+        anchor = _project_anchor(query)
+        graph_hints = _document_hints_from_graph(support_evidences)
+        candidate_hints = _document_hints_from_chunks(candidate_evidences)
+
+        best: tuple[float, int, str] | None = None
+        for index, row in enumerate(self.rows):
+            parsed = _parse_content_chunk_id(row.get("chunk_id", ""))
+            if parsed is None:
+                continue
+            document_id, _ = parsed
+            source_name = row.get("source_name", "")
+            title_match = _title_matches_anchor(source_name, anchor)
+            if anchor and not title_match and document_id not in graph_hints:
+                continue
+
+            score = 0.0
+            if title_match:
+                score += 2.0
+            if document_id in graph_hints:
+                score += 1.5
+            if document_id in candidate_hints:
+                score += 0.5
+            score += self._summary_row_score(row, aspects)
+
+            if score <= 0:
+                continue
+            item = (score, -index, document_id)
+            if best is None or item > best:
+                best = item
+
+        return best[2] if best else None
+
+    def _summary_row_score(
+        self,
+        row: dict[str, str],
+        aspects: list[str],
+    ) -> float:
+        content = row.get("content", "")
+        source_name = row.get("source_name", "")
+        text = f"{source_name} {content}"
+        score = 0.0
+        for aspect in aspects:
+            core = _summary_core_text(aspect)
+            terms = _lexical_terms(core)
+            score += _lexical_overlap_score(terms, text)
+            score += _important_term_score(_summary_terms(core), text)
+            score += _summary_core_bonus(core, text)
+        if row.get("chunk_type") == "detail_content":
+            score += 0.05
+        return score
 
     def _score_row(
         self,

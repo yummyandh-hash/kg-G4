@@ -257,3 +257,68 @@ def test_complex_query_expands_neighbor_chunks(tmp_path):
         evidence.retrieval_method == "neighbor_expansion"
         for evidence in evidences
     )
+
+
+def test_summary_query_prioritizes_aspect_coverage(tmp_path):
+    chunks_file = tmp_path / "chunks.jsonl"
+    rows = [
+        {
+            "chunk_id": "doc_a_content_1",
+            "content": "项目开头介绍。",
+            "source_name": "爬山调",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_a_content_5",
+            "content": "移民带来的民歌经过长期交流形成新的艺术特点。",
+            "source_name": "爬山调",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_a_content_8",
+            "content": "唱词短小精悍，多用乡土方言重叠词。",
+            "source_name": "爬山调",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_a_content_9",
+            "content": "旋律结构多采用两乐句的乐段结构。",
+            "source_name": "爬山调",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+        {
+            "chunk_id": "doc_b_content_5",
+            "content": "移民带来的民歌经过长期交流形成新的艺术特点。",
+            "source_name": "其他爬山调",
+            "source_url": "",
+            "chunk_type": "detail_content",
+        },
+    ]
+    chunks_file.write_text(
+        "\n".join(json.dumps(row, ensure_ascii=False) for row in rows),
+        encoding="utf-8",
+    )
+
+    dispatcher = RouteDispatchRetriever(
+        {"lexical": ChunkLexicalRetriever(chunks_file)}
+    )
+
+    evidences = dispatcher.retrieve(
+        "仅根据爬山调正文，从移民带来的民歌交流、唱词特点和旋律结构三个方面概括其艺术形成与表现。",
+        RetrievalContext(
+            query_type="constraint",
+            complexity_score=0.7,
+            top_k=5,
+            selected_route="vector",
+        ),
+    )
+
+    assert [
+        "doc_a_content_5",
+        "doc_a_content_8",
+        "doc_a_content_9",
+    ] == [evidence.source_id for evidence in evidences[:3]]

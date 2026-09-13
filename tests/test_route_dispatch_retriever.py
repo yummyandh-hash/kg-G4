@@ -22,6 +22,30 @@ class FakeSingleRouteRetriever:
         ]
 
 
+class FakeVectorCandidateRetriever:
+    def __init__(self):
+        self.calls = []
+
+    def retrieve(self, query, context):
+        self.calls.append((query, context.top_k, context.selected_route))
+        return [
+            Evidence(
+                evidence_id="weak",
+                content="unrelated evidence",
+                retrieval_method="vector",
+                score=0.65,
+                source_id="weak",
+            ),
+            Evidence(
+                evidence_id="target",
+                content="target relation evidence with anchor special term",
+                retrieval_method="vector",
+                score=0.50,
+                source_id="target",
+            ),
+        ][: context.top_k]
+
+
 def test_route_dispatch_supports_hybrid_from_vector_and_graph():
     graph = FakeSingleRouteRetriever(
         "graph",
@@ -53,7 +77,109 @@ def test_route_dispatch_supports_hybrid_from_vector_and_graph():
     )
 
     assert [context.selected_route for context in graph.contexts] == ["graph"]
-    assert [context.selected_route for context in vector.contexts] == ["vector"]
+    assert {context.selected_route for context in vector.contexts} == {
+        "vector",
+    }
+    assert [evidence.retrieval_method for evidence in evidences] == [
+        "graph",
+        "vector",
+    ]
+
+
+def test_vector_route_rewrites_query_expands_candidates_and_reranks():
+    vector = FakeVectorCandidateRetriever()
+    dispatcher = RouteDispatchRetriever(
+        {"vector": vector},
+        vector_candidate_k=20,
+    )
+
+    evidences = dispatcher.retrieve(
+        "Use anchor project text: what is the special term?",
+        RetrievalContext(
+            query_type="fact",
+            complexity_score=0.2,
+            top_k=1,
+            selected_route="vector",
+        ),
+    )
+
+    assert vector.calls
+    assert vector.calls[0][1] == 20
+    assert evidences[0].evidence_id == "target"
+
+
+def test_graph_route_adds_vector_chunk_support_without_changing_route():
+    graph = FakeSingleRouteRetriever(
+        "graph",
+        0.7,
+        relation_path=[
+            {
+                "source": "a",
+                "relation": "related_to",
+                "target": "b",
+            }
+        ],
+    )
+    vector = FakeVectorCandidateRetriever()
+    dispatcher = RouteDispatchRetriever(
+        {
+            "vector": vector,
+            "graph": graph,
+        },
+        vector_candidate_k=10,
+    )
+
+    evidences = dispatcher.retrieve(
+        "what is the relation between a and b?",
+        RetrievalContext(
+            query_type="relation",
+            complexity_score=0.35,
+            top_k=1,
+            selected_route="graph",
+        ),
+    )
+
+    assert [context.selected_route for context in graph.contexts] == ["graph"]
+    assert vector.calls
+    assert vector.calls[0][2] == "vector"
+    assert [evidence.retrieval_method for evidence in evidences] == [
+        "graph",
+        "vector",
+    ]
+
+
+def test_graph_route_adds_vector_support_even_for_fact_queries():
+    graph = FakeSingleRouteRetriever(
+        "graph",
+        0.7,
+        relation_path=[
+            {
+                "source": "a",
+                "relation": "related_to",
+                "target": "b",
+            }
+        ],
+    )
+    vector = FakeVectorCandidateRetriever()
+    dispatcher = RouteDispatchRetriever(
+        {
+            "vector": vector,
+            "graph": graph,
+        },
+        vector_candidate_k=10,
+    )
+
+    evidences = dispatcher.retrieve(
+        "fact-like question routed to graph",
+        RetrievalContext(
+            query_type="fact",
+            complexity_score=0.1,
+            top_k=1,
+            selected_route="graph",
+        ),
+    )
+
+    assert vector.calls
     assert [evidence.retrieval_method for evidence in evidences] == [
         "graph",
         "vector",

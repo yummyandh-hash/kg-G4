@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 
 from orchestration.retriever_adapters import (
     AnalysisRouter,
+    ChunkLexicalRetriever,
     DRetrieverAdapter,
     RouteDispatchRetriever,
 )
@@ -10,6 +12,7 @@ from orchestration.service import QueryService
 
 def build_stage1_retriever(
     chunks_file: str = "data/chunks/chunks.jsonl",
+    enable_graph_vector_support: bool = True,
 ) -> RouteDispatchRetriever:
     """Build the real D retriever dispatch used by Stage 1 and Stage 2."""
     from retrieval.graph_retriever import GraphRetriever
@@ -25,7 +28,9 @@ def build_stage1_retriever(
                 GraphRetriever(),
                 retrieval_method="graph",
             ),
-        }
+            "lexical": ChunkLexicalRetriever(chunks_file),
+        },
+        enable_graph_vector_support=enable_graph_vector_support,
     )
 
 
@@ -44,7 +49,7 @@ def build_stage1_query_service(
     if selected_router_version == "v2":
         from orchestration.adaptive_router_v2 import AdaptiveRouterV2
 
-        model_path = router_model_path or os.getenv("KG_G5_ROUTER_V2_MODEL")
+        model_path = _router_v2_model_path(router_model_path)
         router = (
             AdaptiveRouterV2.load(model_path)
             if model_path
@@ -63,6 +68,18 @@ def build_stage1_query_service(
         ),
         top_k=top_k,
     )
+
+
+def _router_v2_model_path(router_model_path: str | None) -> str | None:
+    model_path = router_model_path or os.getenv("KG_G5_ROUTER_V2_MODEL")
+    if model_path:
+        return model_path
+
+    default_model = Path("outputs/router_v2.json")
+    if default_model.exists():
+        return str(default_model)
+
+    return None
 
 
 def _build_citation_service(chunks_file: str):

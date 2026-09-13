@@ -175,7 +175,10 @@ def main(argv: list[str] | None = None) -> int:
         from orchestration.stage1 import build_stage1_retriever
 
         result = run_routing_experiment(
-            build_stage1_retriever(chunks_file=args.chunks_file),
+            build_stage1_retriever(
+                chunks_file=args.chunks_file,
+                enable_graph_vector_support=False,
+            ),
             load_benchmark_queries(args.queries),
             top_k=args.top_k,
             records_out=args.records_out,

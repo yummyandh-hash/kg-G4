@@ -1,0 +1,14 @@
+version: "3.3"
+
+services:
+  api:
+    build: .
+    container_name: kg-g5-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      KG_G5_ROUTER_VERSION: v1
+      KG_G5_CITATION_ENABLED: "0"
+    restart: unless-stopped

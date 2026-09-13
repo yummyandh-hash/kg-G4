@@ -36,7 +36,7 @@ class GraphRetriever(BaseRetriever):
     def _inner_retrieve(self, request: RetrievalRequest) -> List[Evidence]:
         node_evidences: List[Evidence] = []
         relation_evidences: List[Evidence] = []
-        
+
         if self.driver is None:
             return []
 
@@ -54,8 +54,11 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_node, q_str=request.query, top_k=request.top_k)
                 for rec in records:
-                    hit_records.append({"name": rec["name"], "attr": rec["attr"], "eid": rec["eid"]})
-
+                    hit_records.append({
+                        "name": rec["name"] or "",
+                        "attr": rec["attr"] or "",
+                        "eid": rec["eid"] or ""
+                    })
             # Python侧：按实体name字符串长度降序，优先选择长实体，规避短实体误匹配
             hit_records.sort(key=lambda x: len(x["name"]), reverse=True)
             for rec in hit_records:
@@ -63,7 +66,8 @@ class GraphRetriever(BaseRetriever):
                 attr = rec["attr"]
                 eid = rec["eid"]
                 content = f"项目名称：{name}，属性信息：{attr}"
-
+                # 防御：entity_ids 不用None，空返回空列表
+                entity_ids = [eid] if eid else []
                 ev = Evidence(
                     evidence=content,
                     score=0.80,
@@ -71,7 +75,7 @@ class GraphRetriever(BaseRetriever):
                     retriever="graph_retriever",
                     latency=time.time() - t0,
                     document_id=eid or "",
-                    chunk_id="graph_node",
+                    chunk_id="",
                     source_url="",
                     source_name=name,
                     source_category="",
@@ -79,13 +83,11 @@ class GraphRetriever(BaseRetriever):
                     source_org="",
                     retrieved_at=datetime.now().isoformat(),
                     source_batch="neo4j_node",
-                    # 节点证据，entity_ids填当前节点id，relation_path为空
-                    entity_ids=[eid] if eid else None,
+                    entity_ids=entity_ids,
                     relation_path=None
                 )
                 node_evidences.append(ev)
                 node_hit_entities.append(name)
-
         except Exception as e:
             print(f"[WARN] graph node retrieve error: {e}")
 
@@ -99,8 +101,7 @@ class GraphRetriever(BaseRetriever):
             entity = node_hit_entities[0]  # 取排序后最长匹配实体做关系查询
             hop1_list = self._one_hop_retrieve(entity, top_k=request.top_k)
             relation_evidences.extend(hop1_list)
-
-            # 如果显式指定了 relation_2hop，追加 two-hop
+            # 如果显式指定了 relation_2hop，追加 two‑hop
             if query_type == "relation_2hop":
                 hop2_list = self._two_hop_retrieve(entity, top_k=request.top_k)
                 relation_evidences.extend(hop2_list)
@@ -124,16 +125,16 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_onehop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    src = rec["src"]
-                    rel_type = rec["rel"]
-                    target = rec["target"]
-                    src_eid = rec["src_eid"]
-                    target_eid = rec["target_eid"]
+                    src = rec["src"] or ""
+                    rel_type = rec["rel"] or ""
+                    target = rec["target"] or ""
+                    src_eid = rec["src_eid"] or ""
+                    target_eid = rec["target_eid"] or ""
 
                     path_text = f"{src} --[{rel_type}]--> {target}"
-
-                    # 构造图谱渲染字段
-                    entity_ids = [src_eid, target_eid]
+                    # 构造图谱渲染字段，过滤空id
+                    raw_entity_ids = [src_eid, target_eid]
+                    entity_ids = [x for x in raw_entity_ids if x]
                     relation_path: List[Dict] = [
                         {
                             "source": src_eid,
@@ -141,7 +142,6 @@ class GraphRetriever(BaseRetriever):
                             "relation": rel_type
                         }
                     ]
-
                     ev = Evidence(
                         evidence=path_text,
                         score=0.70,
@@ -149,7 +149,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_one_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id="graph_one_hop",
+                        chunk_id="",
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -181,25 +181,23 @@ class GraphRetriever(BaseRetriever):
             with self.driver.session() as session:
                 records = session.run(cypher_twohop, entity_name=entity_name, top_k=top_k)
                 for rec in records:
-                    src = rec["src"]
-                    rel1 = rec["rel1"]
-                    mid_node = rec["mid_node"]
-                    rel2 = rec["rel2"]
-                    target = rec["target"]
-
-                    src_eid = rec["src_eid"]
-                    mid_eid = rec["mid_eid"]
-                    target_eid = rec["target_eid"]
+                    src = rec["src"] or ""
+                    rel1 = rec["rel1"] or ""
+                    mid_node = rec["mid_node"] or ""
+                    rel2 = rec["rel2"] or ""
+                    target = rec["target"] or ""
+                    src_eid = rec["src_eid"] or ""
+                    mid_eid = rec["mid_eid"] or ""
+                    target_eid = rec["target_eid"] or ""
 
                     path_text = f"{src} --[{rel1}]--> {mid_node} --[{rel2}]--> {target}"
-
-                    # 两跳：三个节点id，两条关系
-                    entity_ids = [src_eid, mid_eid, target_eid]
+                    # 两跳：三个节点id，两条关系，过滤空id
+                    raw_entity_ids = [src_eid, mid_eid, target_eid]
+                    entity_ids = [x for x in raw_entity_ids if x]
                     relation_path: List[Dict] = [
                         {"source": src_eid, "target": mid_eid, "relation": rel1},
                         {"source": mid_eid, "target": target_eid, "relation": rel2}
                     ]
-
                     ev = Evidence(
                         evidence=path_text,
                         score=0.60,
@@ -207,7 +205,7 @@ class GraphRetriever(BaseRetriever):
                         retriever="graph_retriever_two_hop",
                         latency=time.time() - t0,
                         document_id="",
-                        chunk_id="graph_two_hop",
+                        chunk_id="",
                         source_url="",
                         source_name=src,
                         source_category="",
@@ -227,6 +225,7 @@ class GraphRetriever(BaseRetriever):
         if self.driver:
             self.driver.close()
 
+
 if __name__ == "__main__":
     gr = GraphRetriever()
     # 测试 1：带 context (query_type="relation")
@@ -241,6 +240,7 @@ if __name__ == "__main__":
         print("retriever:", item.retriever)
         print("entity_ids:", item.entity_ids)
         print("relation_path:", item.relation_path)
+        print("chunk_id:", repr(item.chunk_id))
         print("-" * 50)
 
     # 测试 2：不带 context (context=None)，验证兜底覆盖效果
@@ -254,6 +254,6 @@ if __name__ == "__main__":
         print("retriever:", item.retriever)
         print("entity_ids:", item.entity_ids)
         print("relation_path:", item.relation_path)
+        print("chunk_id:", repr(item.chunk_id))
         print("-" * 50)
-
     gr.close()

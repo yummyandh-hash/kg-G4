@@ -70,7 +70,7 @@ class VectorRetriever(BaseRetriever):
                     retriever="vector",
                     latency=latency,
                     document_id=item["document_id"],
-                    chunk_id=item["chunk_id"],
+                    chunk_id=item.get("chunk_id", ""),
                     source_url=item["source_url"],
                     source_name=item["source_name"],
                     source_category=item["source_category"],

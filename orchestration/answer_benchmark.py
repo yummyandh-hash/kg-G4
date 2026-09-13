@@ -16,6 +16,7 @@ class AnswerBenchmarkItem:
     question_type: str
     gold_answer: str | None = None
     gold_evidence: list[str] | None = None
+    gold_relation_path: list[dict] | None = None
     details: object | None = None
 
 
@@ -27,9 +28,15 @@ class AnswerBenchmarkRecord:
     answer: str
     selected_route: str
     retrieved_evidence: list[str]
+    retrieved_evidence_details: list[dict]
+    evidences: list[dict]
     gold_evidence: list[str]
     evidence_hits: list[str]
     evidence_recall: float
+    graph_evidence_count: int = 0
+    graph_relation_path_count: int = 0
+    graph_relation_success: bool = False
+    gold_relation_path_count: int = 0
     gold_answer: str | None = None
     citation_validation: dict | None = None
 
@@ -86,13 +93,19 @@ def run_answer_benchmark_one(
     item: AnswerBenchmarkItem,
 ) -> AnswerBenchmarkRecord:
     response = query_service.query(item.question)
-    retrieved_evidence = _response_evidence_ids(response)
+    retrieved_evidence_details = _response_evidence_details(response)
+    retrieved_evidence = _chunk_evidence_ids(retrieved_evidence_details)
     gold_evidence = item.gold_evidence or []
     evidence_hits = [
         evidence_id
         for evidence_id in retrieved_evidence
         if evidence_id in set(gold_evidence)
     ]
+    graph_relation_path_count = sum(
+        1
+        for evidence in retrieved_evidence_details
+        if evidence["relation_path"]
+    )
 
     return AnswerBenchmarkRecord(
         qid=item.qid,
@@ -101,9 +114,19 @@ def run_answer_benchmark_one(
         answer=response.answer,
         selected_route=response.selected_route,
         retrieved_evidence=retrieved_evidence,
+        retrieved_evidence_details=retrieved_evidence_details,
+        evidences=_chunk_scoring_evidences(retrieved_evidence_details),
         gold_evidence=gold_evidence,
         evidence_hits=evidence_hits,
         evidence_recall=_evidence_recall(evidence_hits, gold_evidence),
+        graph_evidence_count=sum(
+            1
+            for evidence in retrieved_evidence_details
+            if evidence["is_graph_evidence"]
+        ),
+        graph_relation_path_count=graph_relation_path_count,
+        graph_relation_success=graph_relation_path_count > 0,
+        gold_relation_path_count=len(item.gold_relation_path or []),
         gold_answer=item.gold_answer,
         citation_validation=(
             asdict(response.citation_validation)
@@ -124,6 +147,11 @@ def summarize_answer_benchmark(
         "average_evidence_recall": _average(
             row.evidence_recall for row in rows
         ),
+        "average_graph_relation_success": _average(
+            1.0 if row.graph_relation_success else 0.0
+            for row in rows
+        ),
+        "graph_relation_expected": _summarize_graph_relation_expected(rows),
         "by_question_type": _summarize_by_question_type(rows),
         "run": metadata or {},
     }
@@ -206,14 +234,89 @@ def _benchmark_item_from_dict(data: dict) -> AnswerBenchmarkItem:
         ),
         gold_answer=_optional_str(data.get("gold_answer")),
         gold_evidence=_as_str_list(data.get("gold_evidence", [])),
+        gold_relation_path=_as_dict_list(
+            data.get("gold_relation_path", [])
+        ),
         details=data.get("details"),
+    )
+
+
+def _response_evidence_details(response: AnswerResponse) -> list[dict]:
+    details = []
+    for rank, evidence in enumerate(response.evidences, start=1):
+        source_id = str(evidence.source_id) if evidence.source_id else ""
+        evidence_id = (
+            str(evidence.evidence_id)
+            if evidence.evidence_id
+            else ""
+        )
+        retrieval_method = str(evidence.retrieval_method or "")
+        details.append(
+            {
+                "rank": rank,
+                "retriever": retrieval_method,
+                "retrieval_method": retrieval_method,
+                "source_id": source_id,
+                "evidence_id": evidence_id,
+                "score": evidence.score,
+                "source_url": evidence.source_url,
+                "entity_ids": evidence.entity_ids,
+                "relation_path": evidence.relation_path,
+                "is_graph_evidence": _is_graph_evidence(
+                    retrieval_method
+                ),
+            }
+        )
+    return details
+
+
+def _chunk_evidence_ids(evidence_details: list[dict]) -> list[str]:
+    ids = []
+    seen = set()
+    for evidence in evidence_details:
+        if evidence["is_graph_evidence"]:
+            continue
+        evidence_id = str(evidence.get("source_id") or "")
+        if evidence_id and evidence_id not in seen:
+            ids.append(evidence_id)
+            seen.add(evidence_id)
+    return ids
+
+
+def _chunk_scoring_evidences(
+    evidence_details: list[dict],
+) -> list[dict[str, str]]:
+    rows = []
+    for evidence in evidence_details:
+        if evidence["is_graph_evidence"]:
+            continue
+        source_id = str(evidence.get("source_id") or "")
+        evidence_id = str(evidence.get("evidence_id") or "")
+        rows.append(
+            {
+                "source_id": source_id,
+                "evidence_id": evidence_id,
+                "retriever": str(evidence.get("retriever") or ""),
+            }
+        )
+    return rows
+
+
+def _is_graph_evidence(retrieval_method: str) -> bool:
+    normalized = retrieval_method.lower()
+    return (
+        normalized == "graph"
+        or normalized.startswith("graph_retriever")
     )
 
 
 def _response_evidence_ids(response: AnswerResponse) -> list[str]:
     ids = []
     for evidence in response.evidences:
-        if evidence.source_id:
+        if (
+            evidence.source_id
+            and not _is_graph_evidence(evidence.retrieval_method)
+        ):
             ids.append(str(evidence.source_id))
     return list(dict.fromkeys(ids))
 
@@ -231,8 +334,34 @@ def _summarize_by_question_type(
             "average_evidence_recall": _average(
                 row.evidence_recall for row in rows
             ),
+            "average_graph_relation_success": _average(
+                1.0 if row.graph_relation_success else 0.0
+                for row in rows
+            ),
         }
         for question_type, rows in grouped.items()
+    }
+
+
+def _summarize_graph_relation_expected(
+    records: list[AnswerBenchmarkRecord],
+) -> dict[str, float | int]:
+    expected = [
+        row
+        for row in records
+        if row.gold_relation_path_count > 0
+    ]
+    return {
+        "total": len(expected),
+        "success": sum(
+            1
+            for row in expected
+            if row.graph_relation_success
+        ),
+        "success_rate": _average(
+            1.0 if row.graph_relation_success else 0.0
+            for row in expected
+        ),
     }
 
 
@@ -271,6 +400,16 @@ def _as_str_list(value) -> list[str]:
     if isinstance(value, str):
         return [value]
     return [str(item) for item in value if item is not None]
+
+
+def _as_dict_list(value) -> list[dict]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
 
 
 def _save_json(data: dict, path: str | Path) -> None:

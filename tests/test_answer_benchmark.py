@@ -30,6 +30,39 @@ class FakeQueryService:
         )
 
 
+class GraphOnlyQueryService:
+    def query(self, question: str):
+        return AnswerResponse(
+            answer=f"answer: {question}",
+            query_type="relation",
+            complexity_score=0.7,
+            selected_route="graph",
+            route_reason="test",
+            evidences=[
+                Evidence(
+                    evidence_id="graph_one_hop",
+                    content="graph triple",
+                    retrieval_method="graph_retriever_one_hop",
+                    source_id="",
+                    entity_ids=["entity-a", "entity-b"],
+                    relation_path=[
+                        {
+                            "source": "entity-a",
+                            "relation": "LOCATED_IN",
+                            "target": "entity-b",
+                        }
+                    ],
+                ),
+                Evidence(
+                    evidence_id="chunk-1",
+                    content="vector-like evidence",
+                    retrieval_method="vector",
+                    source_id="chunk-1",
+                ),
+            ],
+        )
+
+
 def test_load_answer_benchmark_accepts_task3_schema(tmp_path):
     path = tmp_path / "benchmark.jsonl"
     path.write_text(
@@ -99,3 +132,39 @@ def test_run_answer_benchmark_reports_evidence_recall(tmp_path):
     assert '"gold_answer": "参考答案"' in records_out.read_text(
         encoding="utf-8"
     )
+
+
+def test_answer_benchmark_filters_graph_evidence_from_chunk_recall(tmp_path):
+    benchmark_path = tmp_path / "benchmark.jsonl"
+    benchmark_path.write_text(
+        '{"qid": "q1", "question": "relation question", '
+        '"question_category": "multi_hop", '
+        '"gold_evidence": ["chunk-1"], '
+        '"gold_relation_path": [{"source": "a", "relation": "r", '
+        '"target": "b"}]}',
+        encoding="utf-8",
+    )
+
+    result = run_answer_benchmark(
+        GraphOnlyQueryService(),
+        load_answer_benchmark(benchmark_path),
+    )
+
+    record = result.records[0]
+    assert record.retrieved_evidence == ["chunk-1"]
+    assert record.evidences == [
+        {
+            "source_id": "chunk-1",
+            "evidence_id": "chunk-1",
+            "retriever": "vector",
+        }
+    ]
+    assert record.evidence_recall == 1.0
+    assert record.graph_evidence_count == 1
+    assert record.graph_relation_success is True
+    assert record.retrieved_evidence_details[0]["source_id"] == ""
+    assert result.summary["graph_relation_expected"] == {
+        "total": 1,
+        "success": 1,
+        "success_rate": 1.0,
+    }

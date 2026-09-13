@@ -2,6 +2,7 @@ from dataclasses import asdict, is_dataclass
 from time import perf_counter
 from typing import Any, List, Optional, Protocol
 import re
+import time
 
 from orchestration.context import build_context
 from orchestration.generation import LLMGenerator

@@ -107,7 +107,7 @@ def root():
         </div>
         <div class="query-box">
           <div class="query-row">
-            <input id="question" value="什么是蜀绣？" placeholder="请输入关于非物质文化遗产的问题" onkeydown="if(event.key==='Enter')query()">
+            <input id="question" placeholder="请输入关于非物质文化遗产的问题" onkeydown="if(event.key==='Enter')query()">
             <button id="queryButton" onclick="query()">查询</button>
           </div>
         </div>
@@ -214,8 +214,8 @@ def root():
               <div class="info-label">查询耗时</div>
               <div class="info-value">
                 ${escapeHtml(
-                  timing.total_ms != null
-                    ? Number(timing.total_ms).toFixed(1) + " ms"
+                  timing.total != null
+                    ? Number(timing.total).toFixed(1) + " ms"
                     : "—"
                 )}
               </div>
@@ -372,30 +372,85 @@ def root():
         }
 
         function formatRelationPath(path){
-          if(!Array.isArray(path) || path.length === 0){
+          if(!path){
             return "";
           }
 
-          if(
-            path.length >= 3 &&
-            path.length % 2 === 1 &&
-            path.every(item => typeof item === "string")
-          ){
-            const parts = [];
-
-            for(let i = 0; i < path.length - 2; i += 2){
-              if(i === 0){
-                parts.push(path[i]);
-              }
-
-              parts.push("--[" + path[i + 1] + "]-->");
-              parts.push(path[i + 2]);
+          // 情况 1：
+          // ["A", "RELATION", "B"]
+          // ["A", "RELATION1", "B", "RELATION2", "C"]
+          if(Array.isArray(path)){
+            if(path.length === 0){
+              return "";
             }
 
-            return parts.join(" ");
+            if(
+              path.every(item => typeof item === "string") &&
+              path.length >= 3 &&
+              path.length % 2 === 1
+            ){
+              const parts = [];
+
+              for(let i = 0; i < path.length; i += 2){
+                if(i === 0){
+                  parts.push(path[i]);
+                }else{
+                  parts.push("--[" + path[i - 1] + "]-->");
+                  parts.push(path[i]);
+                }
+              }
+
+              return parts.join(" ");
+            }
+
+            // 情况 2：
+            // [
+            //   {
+            //     source: "A",
+            //     target: "B",
+            //     relation: "RELATION"
+            //   }
+            // ]
+            if(
+              path.every(
+                item =>
+                  item &&
+                  typeof item === "object" &&
+                  item.source &&
+                  item.target &&
+                  item.relation
+              )
+            ){
+              return path.map(item =>
+                `${item.source} --[${item.relation}]--> ${item.target}`
+              ).join(" ");
+            }
+
+            // 其他数组情况
+            return path.map(item => {
+              if(typeof item === "object"){
+                return JSON.stringify(item);
+              }
+
+              return String(item);
+            }).join(" → ");
           }
 
-          return path.join(" → ");
+          // 情况 3：直接传入字符串
+          if(typeof path === "string"){
+            return path;
+          }
+
+          // 其他情况
+          if(typeof path === "object"){
+            if(path.source && path.target && path.relation){
+              return `${path.source} --[${path.relation}]--> ${path.target}`;
+            }
+
+            return JSON.stringify(path);
+          }
+
+          return String(path);
         }
 
         async function query(){
@@ -425,9 +480,7 @@ def root():
                 ? Number(item.score).toFixed(4)
                 : "—";
 
-              const path = Array.isArray(item.relation_path)
-                ? formatRelationPath(item.relation_path)
-                : (item.relation_path || "");
+              const path = formatRelationPath(item.relation_path);
               return `
                 <div style="font-weight:600;margin-bottom:6px">
                   Evidence ${escapeHtml(item.index ?? "")}
@@ -455,7 +508,18 @@ def root():
                 ` : ""}
               `;
             });
-            renderList("paths",data.paths,"path-item",item=>escapeHtml(typeof item==="string"?item:(item.path||item.relation_path||JSON.stringify(item))));
+            renderList(
+              "paths",
+              data.paths,
+              "path-item",
+              item => escapeHtml(
+                formatRelationPath(
+                  typeof item === "string"
+                    ? item
+                    : (item.path || item.relation_path || item)
+                )
+              )
+            );
             renderList("sources",data.sources,"source-item",item=>escapeHtml(typeof item==="string"?item:JSON.stringify(item)));
             renderGraph(data.graph_nodes,data.graph_edges);
           }catch(error){

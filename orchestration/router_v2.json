@@ -1,0 +1,38 @@
+{
+  "version": "adaptive-router-v2",
+  "feature_names": [
+    "complexity_score",
+    "query_length",
+    "type_fact",
+    "type_relation",
+    "type_comparison",
+    "type_constraint",
+    "graph_query_type",
+    "comparison_cue",
+    "relation_cue",
+    "constraint_cue",
+    "multi_entity_cue",
+    "multi_hop_cue",
+    "multi_condition_cue"
+  ],
+  "threshold": 0.5,
+  "learning_rate": 0.2,
+  "epochs": 300,
+  "weights": {
+    "complexity_score": -0.8531751754219059,
+    "query_length": 0.6040878327016492,
+    "type_fact": 0.5336144059550085,
+    "type_relation": 0.0,
+    "type_comparison": 0.0,
+    "type_constraint": 0.5661118072147633,
+    "graph_query_type": 0.5661118072147633,
+    "comparison_cue": 0.0,
+    "relation_cue": 0.0,
+    "constraint_cue": 0.5661118072147633,
+    "multi_entity_cue": -2.6465882344916203,
+    "multi_hop_cue": -1.9445520635576194,
+    "multi_condition_cue": -0.39428860335014626
+  },
+  "bias": 1.7058620167400869,
+  "is_trained": true
+}

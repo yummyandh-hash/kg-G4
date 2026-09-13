@@ -1,6 +1,7 @@
 from orchestration.explainability import build_explanation
 from orchestration.models import (
     AnswerResponse,
+    CitationValidation,
     Evidence,
     GraphEdge,
     GraphNode,
@@ -23,17 +24,21 @@ def test_build_explanation():
                 source_id="s1",
                 source_url="https://www.ihchina.cn/",
                 relation_path=[
-                    "蜀绣",
-                    "分布于",
-                    "四川",
+                    {
+                        "source": "蜀绣",
+                        "relation": "分布于",
+                        "target": "四川",
+                    }
                 ],
             )
         ],
         paths=[
             [
-                "蜀绣",
-                "分布于",
-                "四川",
+                {
+                    "source": "蜀绣",
+                    "relation": "分布于",
+                    "target": "四川",
+                }
             ]
         ],
         sources=["s1"],
@@ -68,10 +73,41 @@ def test_build_explanation():
     )
 
     assert explanation["relation_paths"] == [
-        ["蜀绣", "分布于", "四川"]
+        [
+            {
+                "source": "蜀绣",
+                "relation": "分布于",
+                "target": "四川",
+            }
+        ]
     ]
 
     assert explanation["sources"] == ["s1"]
 
     assert len(explanation["graph"]["nodes"]) == 2
     assert len(explanation["graph"]["edges"]) == 1
+
+
+def test_build_explanation_includes_citation_validation():
+    response = AnswerResponse(
+        answer="ok",
+        query_type="fact",
+        complexity_score=0.2,
+        selected_route="vector",
+        route_reason="test",
+        citation_validation=CitationValidation(
+            label="SUPPORTED",
+            confidence=0.9,
+            reason="supported",
+            evidences=[{"chunk_id": "chunk-1"}],
+        ),
+    )
+
+    explanation = build_explanation(response)
+
+    assert explanation["citation_validation"] == {
+        "label": "SUPPORTED",
+        "confidence": 0.9,
+        "reason": "supported",
+        "evidences": [{"chunk_id": "chunk-1"}],
+    }

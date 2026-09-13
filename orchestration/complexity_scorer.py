@@ -3,8 +3,30 @@ class ComplexityScorer:
 
     MULTI_ENTITY_CUES = ("和", "与", "及", "以及")
     COMPARISON_CUES = ("区别", "不同", "异同", "比较", "共同点", "差异")
-    MULTI_HOP_CUES = ("之间", "为什么", "如何影响", "通过什么", "关联")
-    MULTI_CONDITION_CUES = ("同时", "并且", "且", "既", "分别")
+    MULTI_HOP_CUES = (
+        "之间",
+        "为什么",
+        "如何影响",
+        "通过什么",
+        "关联",
+        "传承方式",
+        "发展阶段",
+        "社会功能",
+        "主要内容",
+    )
+    MULTI_CONDITION_CUES = (
+        "同时",
+        "并且",
+        "且",
+        "既",
+        "分别",
+        "概括",
+        "总结",
+        "说明",
+        "归纳",
+        "结合材料",
+        "根据正文",
+    )
 
     def score(self, query: str) -> float:
         query = query.strip()

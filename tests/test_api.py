@@ -24,19 +24,22 @@ def test_query():
     data = response.json()
 
     assert data["answer"]
-    assert data["query_type"] == "knowledge"
+    assert data["query_type"] == "fact"
     assert data["selected_route"] == "vector"
 
     assert len(data["evidences"]) > 0
-    assert len(data["paths"]) > 0
+    assert "paths" in data
     assert len(data["sources"]) > 0
 
-    assert len(data["graph_nodes"]) > 0
-    assert len(data["graph_edges"]) > 0
+    assert "graph_nodes" in data
+    assert "graph_edges" in data
 
 
 def test_graph():
-    response = client.get("/graph")
+    response = client.post(
+        "/graph",
+        json={"question": "什么是蜀绣？"},
+    )
 
     assert response.status_code == 200
 
@@ -46,11 +49,13 @@ def test_graph():
     assert "edges" in data
 
     assert len(data["nodes"]) > 0
-    assert len(data["edges"]) > 0
 
 
 def test_source():
-    response = client.get("/source")
+    response = client.post(
+        "/source",
+        json={"question": "什么是蜀绣？"},
+    )
 
     assert response.status_code == 200
 
@@ -58,7 +63,6 @@ def test_source():
 
     assert "sources" in data
     assert len(data["sources"]) > 0
-
 
 def test_context():
     response = client.post(

@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.pyc
+.pytest_cache
+.venv
+venv
+tests
+crawler
+docs
+*.md
+kg-g5-stage1-9.3-lxg
+kg-g5-stage1-9.4-lmy
+.env

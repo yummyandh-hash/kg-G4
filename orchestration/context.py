@@ -1,4 +1,4 @@
-from typing import List, Tuple
+﻿from typing import List, Tuple
 
 from orchestration.models import Evidence
 
@@ -273,7 +273,10 @@ def build_context(
     # 提取结构化信息
     # --------------------------------------------------
     entities = _collect_entities(selected)
-    paths = _collect_paths(selected, max_paths=max_paths)
+    paths = _collect_paths(
+        unique_evidences,
+        max_paths=max_paths,
+    )
     sources = _collect_sources(selected)
 
     # --------------------------------------------------

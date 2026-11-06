@@ -1,7 +1,10 @@
 from dataclasses import asdict, is_dataclass
 from time import perf_counter
 from typing import Any, List, Optional, Protocol
+import re
 
+from orchestration.context import build_context
+from orchestration.generation import LLMGenerator
 from orchestration.models import (
     AnswerResponse,
     CitationValidation,
@@ -13,32 +16,17 @@ from orchestration.models import (
 )
 
 
-class Router(Protocol):
-    """统一的路由器接口，后续接入 A 模块。"""
-
+class RouterProtocol(Protocol):
     def route(self, query: str) -> RouteDecision:
         ...
 
 
-class Retriever(Protocol):
-    """统一的 Retriever 接口，后续接入 D 模块。"""
-
+class RetrieverProtocol(Protocol):
     def retrieve(
         self,
         query: str,
-        context: RetrievalContext,
+        context: Optional[RetrievalContext] = None,
     ) -> List[Evidence]:
-        ...
-
-
-class AnswerGenerator(Protocol):
-    """统一的答案生成接口，后续接入 LLM。"""
-
-    def generate(
-        self,
-        query: str,
-        evidences: List[Evidence],
-    ) -> str:
         ...
 
 
@@ -54,110 +42,515 @@ class CitationVerifier(Protocol):
 
 
 class MockRouter:
-    """Stage 1 临时路由器。
+    """
+    Stage 1 默认 Router。
 
-    A 模块正式接入后，可以直接替换为 A 的 Router 实现。
+    当前阶段固定使用 hybrid + relation，
+    用于保证 GraphRetriever 能进入 relation 分支。
     """
 
     def route(self, query: str) -> RouteDecision:
         return RouteDecision(
-            query_type="knowledge",
+            query_type="relation",
             complexity_score=0.3,
-            selected_route="vector",
-            reason="Stage 1 Mock Router：当前默认采用向量检索。",
+            selected_route="hybrid",
+            reason="Stage 1：采用 Graph + Vector 混合检索",
         )
 
 
-class MockRetriever:
-    """Stage 1 临时 Retriever。
+def normalize_evidence(evidence):
+    """
+    将 Retriever 返回的 Evidence 统一转换成
+    orchestration.models.Evidence。
 
-    D 模块正式接入后，可以直接替换为 VectorRetriever
-    或 GraphRetriever。
+    兼容 D 当前 GraphRetriever 返回的字段：
+    evidence
+    score
+    path
+    retriever
+    document_id
+    chunk_id
+    source_url
+    source_name
+    entity_ids
+    relation_path
     """
 
-    def retrieve(
-        self,
-        query: str,
-        context: RetrievalContext,
-    ) -> List[Evidence]:
-        return [
-            Evidence(
-                evidence_id="mock-evidence-001",
-                content=(
-                    "蜀绣是中国传统刺绣的重要代表之一，"
-                    "主要流传于四川地区，具有鲜明的地域文化特色。"
-                ),
-                retrieval_method="vector",
-                score=0.95,
-                source_id="mock-source-001",
-                source_url="https://www.ihchina.cn/",
-                entity_ids=["蜀绣", "四川"],
-                relation_path=[
-                    {
-                        "source": "蜀绣",
-                        "relation": "分布于",
-                        "target": "四川",
-                    }
-                ],
+    if hasattr(evidence, "content"):
+        return evidence
+
+    entity_ids = getattr(
+        evidence,
+        "entity_ids",
+        None,
+    ) or []
+
+    relation_path = getattr(
+        evidence,
+        "relation_path",
+        None,
+    ) or []
+
+    return Evidence(
+        evidence_id=getattr(
+            evidence,
+            "chunk_id",
+            "d-evidence",
+        ),
+        content=getattr(
+            evidence,
+            "evidence",
+            "",
+        ),
+        retrieval_method=getattr(
+            evidence,
+            "retriever",
+            "unknown",
+        ),
+        score=getattr(
+            evidence,
+            "score",
+            0.0,
+        ),
+        source_id=getattr(
+            evidence,
+            "source_name",
+            "",
+        ),
+        source_url=getattr(
+            evidence,
+            "source_url",
+            "",
+        ),
+        entity_ids=list(
+            dict.fromkeys(entity_ids)
+        ),
+        relation_path=relation_path,
+    )
+
+
+def _extract_path_names(path_text: str) -> List[str]:
+    """从 one-hop path 文本中提取节点名称。"""
+
+    if not path_text:
+        return []
+
+    pattern = r"(.+?)\s*--\[(.+?)\]-->\s*(.+)"
+
+    match = re.match(
+        pattern,
+        path_text,
+    )
+
+    if not match:
+        return []
+
+    source = match.group(1).strip()
+    target = match.group(3).strip()
+
+    return [
+        source,
+        target,
+    ]
+
+
+def _extract_two_hop_path_names(
+    path_text: str,
+) -> List[str]:
+    """从 two-hop path 文本中提取三个节点名称。"""
+
+    if not path_text:
+        return []
+
+    pattern = (
+        r"(.+?)\s*--\[(.+?)\]-->\s*"
+        r"(.+?)\s*--\[(.+?)\]-->\s*(.+)"
+    )
+
+    match = re.match(
+        pattern,
+        path_text,
+    )
+
+    if not match:
+        return []
+
+    source = match.group(1).strip()
+    middle = match.group(3).strip()
+    target = match.group(5).strip()
+
+    return [
+        source,
+        middle,
+        target,
+    ]
+
+
+def _build_node_name_map(
+    evidences: List[Evidence],
+) -> dict:
+    """
+    构建 entity_id -> 中文节点名称映射。
+    """
+
+    node_name_map = {}
+
+    for evidence in evidences:
+
+        entity_ids = getattr(
+            evidence,
+            "entity_ids",
+            None,
+        ) or []
+
+        source_name = getattr(
+            evidence,
+            "source_id",
+            None,
+        )
+
+        if (
+            source_name
+            and len(entity_ids) == 1
+            and entity_ids[0]
+        ):
+            node_name_map[
+                entity_ids[0]
+            ] = source_name
+
+        retrieval_method = getattr(
+            evidence,
+            "retrieval_method",
+            "",
+        )
+
+        if retrieval_method == "graph_retriever_one_hop":
+
+            path_texts = []
+
+            raw_path = getattr(
+                evidence,
+                "path",
+                None,
             )
-        ]
+
+            if raw_path:
+                path_texts.extend(raw_path)
+
+            content = getattr(
+                evidence,
+                "content",
+                "",
+            )
+
+            if content:
+                path_texts.append(content)
+
+            for path_text in path_texts:
+
+                names = _extract_path_names(
+                    path_text
+                )
+
+                if (
+                    len(names) == 2
+                    and len(entity_ids) >= 2
+                ):
+                    node_name_map[
+                        entity_ids[0]
+                    ] = names[0]
+
+                    node_name_map[
+                        entity_ids[1]
+                    ] = names[1]
+
+        elif retrieval_method == "graph_retriever_two_hop":
+
+            path_texts = []
+
+            raw_path = getattr(
+                evidence,
+                "path",
+                None,
+            )
+
+            if raw_path:
+                path_texts.extend(raw_path)
+
+            content = getattr(
+                evidence,
+                "content",
+                "",
+            )
+
+            if content:
+                path_texts.append(content)
+
+            for path_text in path_texts:
+
+                names = _extract_two_hop_path_names(
+                    path_text
+                )
+
+                if (
+                    len(names) == 3
+                    and len(entity_ids) >= 3
+                ):
+                    node_name_map[
+                        entity_ids[0]
+                    ] = names[0]
+
+                    node_name_map[
+                        entity_ids[1]
+                    ] = names[1]
+
+                    node_name_map[
+                        entity_ids[2]
+                    ] = names[2]
+
+    return node_name_map
 
 
-class MockAnswerGenerator:
-    """Stage 1 临时答案生成器。
+def _path_entities(path) -> List[str]:
+    """从 relation_path 中提取实体节点。"""
 
-    后续接入实际 LLM 后，只需要替换这个组件。
-    """
+    if not path:
+        return []
 
-    def generate(
-        self,
-        query: str,
-        evidences: List[Evidence],
-    ) -> str:
-        if not evidences:
-            return f"暂未检索到与“{query}”相关的有效证据。"
+    entities = []
 
-        return (
-            f"根据检索到的非遗资料，"
-            f"问题“{query}”可以结合检索证据进行回答。"
+    if all(isinstance(item, str) for item in path):
+
+        if len(path) >= 3 and len(path) % 2 == 1:
+            return path[::2]
+
+        import ast
+
+        for item in path:
+            try:
+                parsed = ast.literal_eval(item)
+            except (ValueError, SyntaxError):
+                continue
+
+            if not isinstance(parsed, dict):
+                continue
+
+            source = parsed.get("source")
+            target = parsed.get("target")
+
+            if source:
+                entities.append(str(source))
+
+            if target:
+                entities.append(str(target))
+
+        return list(dict.fromkeys(entities))
+
+    for item in path:
+        if not isinstance(item, dict):
+            continue
+
+        source = item.get("source")
+        target = item.get("target")
+
+        if source:
+            entities.append(str(source))
+
+        if target:
+            entities.append(str(target))
+
+    return list(dict.fromkeys(entities))
+
+
+def _path_edges(path) -> List[tuple[str, str, str]]:
+    """将 relation_path 解析成 (source, relation, target)。"""
+
+    if not path:
+        return []
+
+    edges = []
+
+    if all(isinstance(item, str) for item in path):
+
+        if len(path) >= 3 and len(path) % 2 == 1:
+            for i in range(0, len(path) - 2, 2):
+                source = path[i]
+                relation = path[i + 1]
+                target = path[i + 2]
+
+                if source and relation and target:
+                    edges.append(
+                        (source, relation, target)
+                    )
+
+            if edges:
+                return edges
+
+        import ast
+
+        for item in path:
+            try:
+                parsed = ast.literal_eval(item)
+            except (ValueError, SyntaxError):
+                continue
+
+            if not isinstance(parsed, dict):
+                continue
+
+            source = parsed.get("source")
+            relation = parsed.get("relation")
+            target = parsed.get("target")
+
+            if source and relation and target:
+                edges.append(
+                    (
+                        str(source),
+                        str(relation),
+                        str(target),
+                    )
+                )
+
+        return edges
+
+    for item in path:
+        if not isinstance(item, dict):
+            continue
+
+        source = item.get("source")
+        relation = item.get("relation")
+        target = item.get("target")
+
+        if source and relation and target:
+            edges.append(
+                (
+                    str(source),
+                    str(relation),
+                    str(target),
+                )
+            )
+
+    return edges
+
+
+def _citation_chunk_ids(
+    evidences: List[Evidence],
+) -> List[str]:
+    ids = [
+        evidence.source_id or evidence.evidence_id
+        for evidence in evidences
+        if evidence.source_id or evidence.evidence_id
+    ]
+
+    return list(
+        dict.fromkeys(
+            str(item)
+            for item in ids
+            if item
         )
+    )
+
+
+def _to_citation_validation(
+    result: Any,
+) -> CitationValidation:
+
+    if isinstance(result, CitationValidation):
+        return result
+
+    if is_dataclass(result):
+        data = asdict(result)
+    elif isinstance(result, dict):
+        data = result
+    else:
+        data = {
+            "label": getattr(result, "label"),
+            "confidence": getattr(result, "confidence"),
+            "reason": getattr(result, "reason"),
+            "evidences": getattr(
+                result,
+                "evidences",
+                [],
+            ),
+        }
+
+    return CitationValidation(
+        label=str(data["label"]),
+        confidence=float(data["confidence"]),
+        reason=str(data.get("reason", "")),
+        evidences=list(
+            data.get("evidences", [])
+        ),
+    )
 
 
 class QueryService:
-    """E 模块统一查询编排服务。
-
-    负责串联：
-        Router → Retriever → AnswerGenerator
-    并将结果整理为统一 AnswerResponse。
-    """
 
     def __init__(
         self,
-        router: Optional[Router] = None,
-        retriever: Optional[Retriever] = None,
-        answer_generator: Optional[AnswerGenerator] = None,
-        citation_service: Optional[CitationVerifier] = None,
+        router: RouterProtocol,
+        retriever: RetrieverProtocol,
         top_k: int = 5,
+        generator: Optional[LLMGenerator] = None,
+        citation_service: Optional[CitationVerifier] = None,
     ):
-        self.router = router or MockRouter()
-        self.retriever = retriever or MockRetriever()
-        self.answer_generator = (
-            answer_generator or MockAnswerGenerator()
-        )
-        self.citation_service = citation_service
+        self.router = router
+        self.retriever = retriever
         self.top_k = top_k
+        self.generator = generator
+        self.citation_service = citation_service
 
-    def query(self, question: str) -> AnswerResponse:
-        """执行一次完整查询。"""
+    def query(
+        self,
+        question: str,
+    ) -> AnswerResponse:
 
-        start = perf_counter()
+        start_time = perf_counter()
 
-        # 1. 路由判断
+        # ==========================================================
+        # 1. Query Routing
+        # ==========================================================
+
         route_start = perf_counter()
-        decision = self.router.route(question)
-        route_time = perf_counter() - route_start
 
-        # 2. 构造检索上下文
+        decision = self.router.route(
+            question
+        )
+
+        route_time = (
+            perf_counter() - route_start
+        )
+
+        print(
+            "========== ROUTE DECISION =========="
+        )
+        print(
+            "QUERY:",
+            question,
+        )
+        print(
+            "QUERY TYPE:",
+            decision.query_type,
+        )
+        print(
+            "COMPLEXITY:",
+            decision.complexity_score,
+        )
+        print(
+            "ROUTE:",
+            decision.selected_route,
+        )
+        print(
+            "REASON:",
+            decision.reason,
+        )
+        print(
+            "===================================="
+        )
+
+        # ==========================================================
+        # 2. RetrievalContext
+        # ==========================================================
+
         context = RetrievalContext(
             query_type=decision.query_type,
             complexity_score=decision.complexity_score,
@@ -165,66 +558,192 @@ class QueryService:
             selected_route=decision.selected_route,
         )
 
-        # 3. 检索
+        # ==========================================================
+        # 3. Retrieval
+        # ==========================================================
+
         retrieval_start = perf_counter()
+
         evidences = self.retriever.retrieve(
             question,
             context,
         )
-        retrieval_time = perf_counter() - retrieval_start
 
-        # 4. 答案生成
-        answer_start = perf_counter()
-        answer = self.answer_generator.generate(
-            question,
-            evidences,
+        retrieval_time = (
+            perf_counter() - retrieval_start
         )
-        answer_time = perf_counter() - answer_start
+
+        # ==========================================================
+        # 4. Normalize Evidence
+        # ==========================================================
+
+        evidences = [
+            normalize_evidence(evidence)
+            for evidence in evidences
+        ]
+
+        # ==========================================================
+        # 5. Context Engineering
+        # ==========================================================
+
+        llm_context = build_context(
+            query=question,
+            evidences=evidences,
+            max_evidence=self.top_k,
+        )
+
+        print(
+            "========== LLM CONTEXT =========="
+        )
+        print(llm_context)
+        print(
+            "================================="
+        )
+
+        # ==========================================================
+        # 6. LLM Generation
+        # ==========================================================
+
+        answer_start = perf_counter()
+
+        if self.generator is not None:
+            answer = self.generator.generate(
+                question=question,
+                context=llm_context,
+            )
+        else:
+            answer = ""
+
+        answer_time = (
+            perf_counter() - answer_start
+        )
+
+        # ==========================================================
+        # 7. Citation Verification
+        # ==========================================================
 
         citation_start = perf_counter()
-        citation_validation = self._verify_citation(answer, evidences)
-        citation_time = perf_counter() - citation_start
 
-        # 5. 整理关系路径
+        citation_validation = (
+            self._verify_citation(
+                answer,
+                evidences,
+            )
+        )
+
+        citation_time = (
+            perf_counter() - citation_start
+        )
+
+        # ==========================================================
+        # 8. Relation Paths
+        # ==========================================================
+
         paths = [
             evidence.relation_path
             for evidence in evidences
             if evidence.relation_path
         ]
 
-        # 6. 整理来源
-        sources = list(dict.fromkeys(
-            evidence.source_id or evidence.source_url
-            for evidence in evidences
-            if evidence.source_id or evidence.source_url
-        ))
+        # ==========================================================
+        # 9. Sources
+        # ==========================================================
 
-        # 7. 构造图谱节点
+        sources = list(
+            dict.fromkeys(
+                evidence.source_id
+                for evidence in evidences
+                if evidence.source_id
+            )
+        )
+
+        # ==========================================================
+        # 10. Entity Name Mapping
+        # ==========================================================
+
+        node_name_map = _build_node_name_map(
+            evidences
+        )
+
+        # ==========================================================
+        # 11. Graph Nodes
+        # ==========================================================
+
         node_map = {}
 
         for evidence in evidences:
-            for entity_id in evidence.entity_ids:
-                if entity_id not in node_map:
-                    node_map[entity_id] = GraphNode(
-                        node_id=entity_id,
-                        label=entity_id,
-                    )
 
-            for entity_id in _path_entities(evidence.relation_path):
-                if entity_id not in node_map:
-                    node_map[entity_id] = GraphNode(
-                        node_id=entity_id,
-                        label=entity_id,
-                    )
+            entity_ids = getattr(
+                evidence,
+                "entity_ids",
+                None,
+            ) or []
 
-        graph_nodes = list(node_map.values())
+            for entity_id in entity_ids:
 
-        # 8. 构造图谱边
+                if not entity_id:
+                    continue
+
+                if entity_id in node_map:
+                    continue
+
+                label = node_name_map.get(
+                    entity_id
+                )
+
+                if not label:
+                    label = entity_id.split(":")[-1]
+
+                node_map[entity_id] = GraphNode(
+                    node_id=entity_id,
+                    label=label,
+                )
+
+            for entity_id in _path_entities(
+                evidence.relation_path
+            ):
+
+                if not entity_id:
+                    continue
+
+                if entity_id in node_map:
+                    continue
+
+                label = node_name_map.get(
+                    entity_id
+                )
+
+                if not label:
+                    label = entity_id.split(":")[-1]
+
+                node_map[entity_id] = GraphNode(
+                    node_id=entity_id,
+                    label=label,
+                )
+
+        graph_nodes = list(
+            node_map.values()
+        )
+
+        # ==========================================================
+        # 12. Graph Edges
+        # ==========================================================
+
         edge_map = {}
 
-        for path in paths:
-            for source, relation, target in _path_edges(path):
-                edge_key = (source, relation, target)
+        for evidence in evidences:
+
+            edges = _path_edges(
+                evidence.relation_path
+            )
+
+            for source, relation, target in edges:
+
+                edge_key = (
+                    source,
+                    relation,
+                    target,
+                )
 
                 if edge_key not in edge_map:
                     edge_map[edge_key] = GraphEdge(
@@ -233,15 +752,26 @@ class QueryService:
                         relation=relation,
                     )
 
-        graph_edges = list(edge_map.values())
+        graph_edges = list(
+            edge_map.values()
+        )
 
-        # 9. 总耗时
-        total_time = perf_counter() - start
+        # ==========================================================
+        # 13. Timing
+        # ==========================================================
+
+        total_time = (
+            perf_counter() - start_time
+        )
+
+        # ==========================================================
+        # 14. AnswerResponse
+        # ==========================================================
 
         return AnswerResponse(
             answer=answer,
-            query_type=context.query_type,
-            complexity_score=context.complexity_score,
+            query_type=decision.query_type,
+            complexity_score=decision.complexity_score,
             selected_route=decision.selected_route,
             route_reason=decision.reason,
             route_confidence=decision.confidence,
@@ -264,97 +794,26 @@ class QueryService:
         self,
         answer: str,
         evidences: List[Evidence],
-    ) -> CitationValidation | None:
-        if self.citation_service is None or not evidences:
+    ) -> Optional[CitationValidation]:
+
+        if (
+            self.citation_service is None
+            or not evidences
+        ):
             return None
 
-        chunk_ids = _citation_chunk_ids(evidences)
+        chunk_ids = _citation_chunk_ids(
+            evidences
+        )
+
         if not chunk_ids:
             return None
 
-        result = self.citation_service.verify_claim(answer, chunk_ids)
-        return _to_citation_validation(result)
+        result = self.citation_service.verify_claim(
+            answer,
+            chunk_ids,
+        )
 
-
-def _path_entities(path) -> List[str]:
-    if not path:
-        return []
-
-    if all(isinstance(item, dict) for item in path):
-        entities = []
-        for item in path:
-            entities.extend(
-                value
-                for value in (item.get("source"), item.get("target"))
-                if value
-            )
-        return list(dict.fromkeys(entities))
-
-    if len(path) < 3:
-        return []
-
-    return [
-        value
-        for index, value in enumerate(path)
-        if index % 2 == 0
-    ]
-
-
-def _path_edges(path) -> List[tuple[str, str, str]]:
-    if not path:
-        return []
-
-    edges = []
-
-    if all(isinstance(item, dict) for item in path):
-        for item in path:
-            source = item.get("source")
-            relation = item.get("relation")
-            target = item.get("target")
-            if source and relation and target:
-                edges.append((source, relation, target))
-        return edges
-
-    if len(path) < 3:
-        return []
-
-    for index in range(0, len(path) - 2, 2):
-        source = path[index]
-        relation = path[index + 1]
-        target = path[index + 2]
-        edges.append((source, relation, target))
-
-    return edges
-
-
-def _citation_chunk_ids(evidences: List[Evidence]) -> List[str]:
-    ids = [
-        evidence.source_id
-        for evidence in evidences
-        if evidence.source_id
-    ]
-    return list(dict.fromkeys(str(item) for item in ids if item))
-
-
-def _to_citation_validation(result: Any) -> CitationValidation:
-    if isinstance(result, CitationValidation):
-        return result
-
-    if is_dataclass(result):
-        data = asdict(result)
-    elif isinstance(result, dict):
-        data = result
-    else:
-        data = {
-            "label": getattr(result, "label"),
-            "confidence": getattr(result, "confidence"),
-            "reason": getattr(result, "reason"),
-            "evidences": getattr(result, "evidences", []),
-        }
-
-    return CitationValidation(
-        label=str(data["label"]),
-        confidence=float(data["confidence"]),
-        reason=str(data.get("reason", "")),
-        evidences=list(data.get("evidences", [])),
-    )
+        return _to_citation_validation(
+            result
+        )

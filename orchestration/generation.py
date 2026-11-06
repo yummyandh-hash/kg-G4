@@ -1,11 +1,8 @@
 import os
-from typing import List, Optional
+from typing import Optional
 
 import requests
 from dotenv import load_dotenv
-
-from orchestration.context import build_context
-from orchestration.models import Evidence
 
 
 class LLMGenerator:
@@ -41,13 +38,9 @@ class LLMGenerator:
     def generate(
         self,
         question: str,
-        evidences: List[Evidence],
+        context: str,
     ) -> str:
         """根据用户问题和检索上下文生成最终答案。"""
-        context = build_context(
-            question,
-            evidences,
-        )
 
         system_prompt = (
             "你是中国非物质文化遗产知识问答助手。"

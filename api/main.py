@@ -1,5 +1,4 @@
 from dataclasses import asdict
-import os
 from typing import Any, Dict, List
 
 from fastapi import FastAPI
@@ -12,17 +11,10 @@ from orchestration.service import QueryService
 
 
 def build_query_service() -> QueryService:
-    """Use the real Stage 1 pipeline when D dependencies are available."""
-    if os.getenv("KG_G5_STAGE1_REAL") != "1":
-        return QueryService()
+    """Build the real query service for Stage 2."""
+    from orchestration.stage1 import build_stage1_query_service
 
-    try:
-        from orchestration.stage1 import build_stage1_query_service
-
-        return build_stage1_query_service()
-    except Exception as exc:
-        print(f"[WARN] Stage 1 real pipeline unavailable: {exc}")
-        return QueryService()
+    return build_stage1_query_service()
 
 
 app = FastAPI(
@@ -63,492 +55,1186 @@ query_service = build_query_service()
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    """Stage 1 Web Demo."""
+    """Stage 2 Web Demo."""
 
     return """
     <!DOCTYPE html>
     <html lang="zh-CN">
-
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport"
-              content="width=device-width, initial-scale=1.0">
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>非遗智谱：AP-ICH-GraphRAG</title>
 
-        <title>非遗智谱：AP-ICH-GraphRAG</title>
+      <style>
+        * {
+          box-sizing: border-box;
+        }
 
-        <style>
-            * {
-                box-sizing: border-box;
-            }
+        body {
+          margin: 0;
+          font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+          background: #f5f7fa;
+          color: #1f2937;
+        }
 
-            body {
-                margin: 0;
-                padding: 0;
-                font-family:
-                    "Microsoft YaHei",
-                    "PingFang SC",
-                    Arial,
-                    sans-serif;
+        .container {
+          width: 94%;
+          max-width: 1400px;
+          margin: 24px auto 40px;
+        }
 
-                background: #f4f6f8;
-                color: #222;
-            }
+        .header,
+        .query-box,
+        .card {
+          background: #fff;
+          border: 1px solid #e8ebef;
+          border-radius: 14px;
+          box-shadow: 0 3px 14px rgba(0, 0, 0, .07);
+        }
 
-            .container {
-                width: 90%;
-                max-width: 1100px;
-                margin: 30px auto;
-            }
+        .header {
+          padding: 24px 30px;
+          margin-bottom: 18px;
+        }
 
-            .header {
-                background: white;
-                padding: 28px;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            }
+        .header h1 {
+          margin: 0 0 7px;
+          font-size: 28px;
+        }
 
-            .header h1 {
-                margin: 0 0 8px 0;
-            }
+        .header p {
+          margin: 0;
+          color: #6b7280;
+          font-size: 14px;
+        }
 
-            .header p {
-                margin: 0;
-                color: #666;
-            }
+        .query-box {
+          padding: 18px 22px;
+          margin-bottom: 18px;
+        }
 
-            .query-box {
-                background: white;
-                padding: 20px;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            }
+        .query-row {
+          display: flex;
+          gap: 12px;
+        }
 
-            .query-row {
-                display: flex;
-                gap: 10px;
-            }
+        #question {
+          flex: 1;
+          padding: 13px 15px;
+          border: 1px solid #d1d5db;
+          border-radius: 9px;
+          font-size: 16px;
+          outline: none;
+        }
 
-            #question {
-                flex: 1;
-                padding: 13px;
-                border: 1px solid #ccc;
-                border-radius: 6px;
-                font-size: 16px;
-            }
+        #question:focus {
+          border-color: #6b7280;
+          box-shadow: 0 0 0 3px rgba(107, 114, 128, .12);
+        }
 
-            button {
-                padding: 12px 24px;
-                border: none;
-                border-radius: 6px;
-                background: #333;
-                color: white;
-                cursor: pointer;
-                font-size: 16px;
-            }
+        button {
+          padding: 12px 28px;
+          border: 0;
+          border-radius: 9px;
+          background: #1f2937;
+          color: #fff;
+          cursor: pointer;
+          font-size: 15px;
+          font-weight: 600;
+        }
 
-            button:hover {
-                opacity: 0.85;
-            }
+        button:hover {
+          opacity: .88;
+        }
 
-            .card {
-                background: white;
-                padding: 22px;
-                border-radius: 12px;
-                margin-bottom: 20px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            }
+        button:disabled {
+          opacity: .55;
+          cursor: not-allowed;
+        }
 
-            .card h2 {
-                margin-top: 0;
-            }
+        .main-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(430px, 1.08fr);
+          gap: 18px;
+          align-items: stretch;
+        }
 
-            pre {
-                white-space: pre-wrap;
-                word-break: break-word;
-                background: #f6f7f8;
-                padding: 15px;
-                border-radius: 6px;
-                overflow-x: auto;
-            }
+        .left-panel,
+        .right-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          min-width: 0;
+        }
 
-            .node {
-                display: inline-block;
-                padding: 8px 14px;
-                margin: 5px;
-                border: 1px solid #999;
-                border-radius: 20px;
-                background: #fafafa;
-            }
+        .card {
+          padding: 20px 22px;
+        }
 
-            .edge {
-                margin: 10px 5px;
-                padding: 8px;
-                background: #f6f7f8;
-                border-radius: 5px;
-            }
+        .card h2 {
+          margin: 0 0 14px;
+          font-size: 18px;
+        }
 
-            .loading {
-                color: #777;
-            }
+        .answer-card {
+          min-height: 170px;
+        }
 
-            .error {
-                color: #b00020;
-            }
-        </style>
+        .answer {
+          white-space: pre-wrap;
+          line-height: 1.75;
+          font-size: 16px;
+          color: #374151;
+        }
+
+        .retrieval-summary {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .info-item {
+          background: #f8fafc;
+          border-radius: 9px;
+          padding: 11px 13px;
+          border: 1px solid #edf0f3;
+        }
+
+        .info-label {
+          color: #6b7280;
+          font-size: 12px;
+          margin-bottom: 4px;
+        }
+
+        .info-value {
+          font-size: 14px;
+          font-weight: 600;
+          word-break: break-word;
+        }
+
+        .evidence-item,
+        .source-item,
+        .path-item {
+          background: #f8fafc;
+          border: 1px solid #edf0f3;
+          border-radius: 9px;
+          padding: 11px 13px;
+          margin-bottom: 9px;
+          line-height: 1.55;
+          font-size: 14px;
+          word-break: break-word;
+        }
+
+        .evidence-item:last-child,
+        .source-item:last-child,
+        .path-item:last-child {
+          margin-bottom: 0;
+        }
+
+        .graph-card {
+          flex: 1;
+          min-height: 590px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .graph-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .graph-status {
+          color: #6b7280;
+          font-size: 12px;
+        }
+
+        #graphCanvas {
+          position: relative;
+          flex: 1;
+          min-height: 500px;
+          border-radius: 12px;
+          background:
+            radial-gradient(
+              circle at 1px 1px,
+              #e5e7eb 1px,
+              transparent 1px
+            );
+          background-size: 22px 22px;
+          border: 1px solid #edf0f3;
+          overflow: hidden;
+        }
+
+        #graphSvg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .graph-edge {
+          stroke: #9ca3af;
+          stroke-width: 1.7;
+        }
+
+        .graph-edge-label {
+          font-size: 11px;
+          fill: #6b7280;
+        }
+
+        .graph-node circle {
+          fill: #fff;
+          stroke: #4b5563;
+          stroke-width: 2;
+        }
+
+        .graph-node text {
+          font-size: 12px;
+          fill: #1f2937;
+          text-anchor: middle;
+          dominant-baseline: middle;
+        }
+
+        .empty {
+          color: #9ca3af;
+          text-align: center;
+          padding: 35px 10px;
+        }
+
+        .error {
+          color: #b00020;
+        }
+
+        @media (max-width: 980px) {
+          .main-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .graph-card {
+            min-height: 500px;
+          }
+
+          #graphCanvas {
+            min-height: 430px;
+          }
+        }
+
+        @media (max-width: 620px) {
+          .query-row {
+            flex-direction: column;
+          }
+
+          button {
+            width: 100%;
+          }
+
+          .retrieval-summary {
+            grid-template-columns: 1fr;
+          }
+        }
+      </style>
     </head>
 
     <body>
+      <div class="container">
 
-        <div class="container">
-
-            <div class="header">
-                <h1>非遗智谱：AP-ICH-GraphRAG</h1>
-                <p>
-                    中国非物质文化遗产知识图谱增强检索系统 · Stage 1 Demo
-                </p>
-            </div>
-
-
-            <div class="query-box">
-
-                <div class="query-row">
-
-                    <input
-                        id="question"
-                        value="什么是蜀绣？"
-                        placeholder="请输入关于非物质文化遗产的问题"
-                    >
-
-                    <button onclick="query()">
-                        查询
-                    </button>
-
-                </div>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>回答</h2>
-
-                <pre id="answer">
-等待查询...
-                </pre>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>检索信息</h2>
-
-                <pre id="retrieval">
-等待查询...
-                </pre>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>Evidence 检索证据</h2>
-
-                <pre id="evidence">
-等待查询...
-                </pre>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>关系路径</h2>
-
-                <pre id="paths">
-等待查询...
-                </pre>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>知识图谱子图</h2>
-
-                <div id="graph">
-                    等待查询...
-                </div>
-
-            </div>
-
-
-            <div class="card">
-
-                <h2>来源</h2>
-
-                <pre id="sources">
-等待查询...
-                </pre>
-
-            </div>
-
+        <div class="header">
+          <h1>非遗智谱：AP-ICH-GraphRAG</h1>
+          <p>
+            中国非物质文化遗产知识图谱增强检索系统 · Stage 2 Demo
+          </p>
         </div>
 
+        <div class="query-box">
+          <div class="query-row">
+            <input
+              id="question"
+              placeholder="请输入关于非物质文化遗产的问题"
+              onkeydown="if(event.key==='Enter') query()"
+            >
+            <button id="queryButton" onclick="query()">
+              查询
+            </button>
+          </div>
+        </div>
 
-        <script>
+        <div class="main-grid">
 
-            async function query() {
+          <div class="left-panel">
 
-                const question =
-                    document.getElementById("question").value.trim();
+            <div class="card answer-card">
+              <h2>智能回答</h2>
+              <div id="answer" class="answer">
+                等待查询...
+              </div>
+            </div>
 
-                if (!question) {
-                    alert("请输入问题");
-                    return;
+            <div class="card">
+              <h2>检索信息</h2>
+
+              <div id="retrieval" class="retrieval-summary">
+
+                <div class="info-item">
+                  <div class="info-label">查询类型</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">Retriever</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">复杂度</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">路由原因</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">Evidence 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">Path 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">Source 数量</div>
+                  <div class="info-value">—</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">查询耗时</div>
+                  <div class="info-value">—</div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Evidence 检索证据</h2>
+              <div id="evidence">
+                <div class="empty">等待查询...</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>关系路径</h2>
+              <div id="paths">
+                <div class="empty">等待查询...</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>来源</h2>
+              <div id="sources">
+                <div class="empty">等待查询...</div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="right-panel">
+
+            <div class="card graph-card">
+
+              <div class="graph-title-row">
+                <h2>知识图谱</h2>
+                <span id="graphStatus" class="graph-status">
+                  等待查询
+                </span>
+              </div>
+
+              <div id="graphCanvas">
+                <svg id="graphSvg"></svg>
+
+                <div id="graphEmpty" class="empty">
+                  查询后将在这里展示知识图谱节点与关系
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <script>
+
+        function escapeHtml(value) {
+          const div = document.createElement("div");
+          div.textContent = value == null ? "" : String(value);
+          return div.innerHTML;
+        }
+
+
+        function renderRetrieval(data) {
+
+          const timing = data.timing || {};
+
+          document.getElementById("retrieval").innerHTML = `
+
+            <div class="info-item">
+              <div class="info-label">查询类型</div>
+              <div class="info-value">
+                ${escapeHtml(data.query_type || "—")}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Retriever</div>
+              <div class="info-value">
+                ${escapeHtml(data.selected_route || "—")}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">复杂度</div>
+              <div class="info-value">
+                ${escapeHtml(data.complexity_score ?? "—")}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">路由原因</div>
+              <div class="info-value">
+                ${escapeHtml(data.route_reason || "—")}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Evidence 数量</div>
+              <div class="info-value">
+                ${escapeHtml(data.evidences?.length ?? 0)}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Path 数量</div>
+              <div class="info-value">
+                ${escapeHtml(data.paths?.length ?? 0)}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">Source 数量</div>
+              <div class="info-value">
+                ${escapeHtml(data.sources?.length ?? 0)}
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-label">查询耗时</div>
+              <div class="info-value">
+                ${
+                  escapeHtml(
+                    timing.total_ms != null
+                      ? Number(timing.total_ms).toFixed(1) + " ms"
+                      : "—"
+                  )
                 }
+              </div>
+            </div>
+          `;
+        }
 
-                document.getElementById("answer").textContent =
-                    "正在查询...";
 
-                document.getElementById("retrieval").textContent =
-                    "正在检索...";
+        function renderList(id, items, cls, formatter) {
 
-                try {
+          const el = document.getElementById(id);
 
-                    const response = await fetch(
-                        "/query",
-                        {
-                            method: "POST",
+          if (!items || items.length === 0) {
+            el.innerHTML = '<div class="empty">暂无数据</div>';
+            return;
+          }
 
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
+          el.innerHTML = items
+            .map((item, i) => {
+              return `<div class="${cls}">${formatter(item, i)}</div>`;
+            })
+            .join("");
+        }
 
-                            body: JSON.stringify({
-                                question: question
-                            })
-                        }
-                    );
 
+        function getNodeId(node) {
 
-                    if (!response.ok) {
-                        throw new Error(
-                            "HTTP " + response.status
-                        );
-                    }
+          return String(
+            node.node_id || node.id || ""
+          ).trim();
+        }
 
 
-                    const data =
-                        await response.json();
+        /*
+         * 判断节点是否应该在前端图谱中隐藏。
+         *
+         * 1. ihchina_xxxxx 是内部数据 ID
+         * 2. 非遗实体是无法解析名称时产生的占位节点
+         */
+        function isHiddenNode(node) {
 
+          const label = String(
+            node.label || ""
+          ).trim();
 
-                    // Answer
+          if (!label) {
+            return true;
+          }
 
-                    document.getElementById(
-                        "answer"
-                    ).textContent = data.answer;
+          if (/^ihchina_[a-zA-Z0-9]+$/.test(label)) {
+            return true;
+          }
 
+          if (label === "非遗实体") {
+            return true;
+          }
 
-                    // Retrieval
+          return false;
+        }
 
-                    document.getElementById(
-                        "retrieval"
-                    ).textContent =
-                        JSON.stringify(
-                            {
-                                query_type:
-                                    data.query_type,
 
-                                complexity_score:
-                                    data.complexity_score,
+        function getDisplayLabel(node) {
 
-                                selected_route:
-                                    data.selected_route,
+          const label = String(
+            node.label || ""
+          ).trim();
 
-                                route_reason:
-                                    data.route_reason,
+          if (isHiddenNode(node)) {
+            return "";
+          }
 
-                                timing:
-                                    data.timing
-                            },
-                            null,
-                            2
-                        );
+          return label;
+        }
 
 
-                    // Evidence
+        function getDisplayRelation(relation) {
 
-                    document.getElementById(
-                        "evidence"
-                    ).textContent =
-                        JSON.stringify(
-                            data.evidences,
-                            null,
-                            2
-                        );
+          const map = {
+            "BELONGS_TO": "属于",
+            "LOCATED_IN": "位于",
+            "RELATED_TO": "相关"
+          };
 
+          return map[relation] || relation || "";
+        }
 
-                    // Paths
 
-                    document.getElementById(
-                        "paths"
-                    ).textContent =
-                        JSON.stringify(
-                            data.paths,
-                            null,
-                            2
-                        );
+        function renderGraph(nodes, edges) {
 
+          const canvas =
+            document.getElementById("graphCanvas");
 
-                    // Graph
+          const svg =
+            document.getElementById("graphSvg");
 
-                    const graph =
-                        document.getElementById(
-                            "graph"
-                        );
+          const empty =
+            document.getElementById("graphEmpty");
 
-                    graph.innerHTML = "";
+          const status =
+            document.getElementById("graphStatus");
 
 
-                    if (
-                        data.graph_nodes &&
-                        data.graph_nodes.length > 0
-                    ) {
+          while (svg.firstChild) {
+            svg.removeChild(svg.firstChild);
+          }
 
-                        const nodeTitle =
-                            document.createElement("h3");
 
-                        nodeTitle.textContent =
-                            "节点";
+          /*
+           * 先过滤掉：
+           * - ihchina_xxxxx
+           * - 非遗实体
+           * - 空名称节点
+           */
+          const visibleNodes = (nodes || []).filter(
+            node => !isHiddenNode(node)
+          );
 
-                        graph.appendChild(nodeTitle);
 
+          /*
+           * 只保留两个端点都存在的关系。
+           *
+           * 这样隐藏 ihchina 节点后，
+           * 不会出现一条线指向不存在的节点。
+           */
+          const visibleNodeIds = new Set(
+            visibleNodes.map(node => getNodeId(node))
+          );
 
-                        data.graph_nodes.forEach(
-                            node => {
 
-                                const div =
-                                    document.createElement(
-                                        "div"
-                                    );
+          const visibleEdges = (edges || []).filter(edge => {
 
-                                div.className =
-                                    "node";
+            const sourceId =
+              String(edge.source || "").trim();
 
-                                div.textContent =
-                                    node.label;
+            const targetId =
+              String(edge.target || "").trim();
 
-                                graph.appendChild(
-                                    div
-                                );
-                            }
-                        );
+            return (
+              visibleNodeIds.has(sourceId) &&
+              visibleNodeIds.has(targetId)
+            );
+          });
 
-                    } else {
 
-                        graph.textContent =
-                            "暂无图谱节点";
+          if (visibleNodes.length === 0) {
 
-                    }
+            empty.style.display = "block";
+            status.textContent = "暂无可显示图谱";
 
+            return;
+          }
 
-                    if (
-                        data.graph_edges &&
-                        data.graph_edges.length > 0
-                    ) {
 
-                        const edgeTitle =
-                            document.createElement("h3");
+          empty.style.display = "none";
 
-                        edgeTitle.textContent =
-                            "关系";
+          status.textContent =
+            `${visibleNodes.length} 个节点 · ` +
+            `${visibleEdges.length} 条关系`;
 
-                        graph.appendChild(
-                            edgeTitle
-                        );
 
+          const width =
+            canvas.clientWidth;
 
-                        data.graph_edges.forEach(
-                            edge => {
+          const height =
+            canvas.clientHeight;
 
-                                const div =
-                                    document.createElement(
-                                        "div"
-                                    );
+          const cx =
+            width / 2;
 
-                                div.className =
-                                    "edge";
+          const cy =
+            height / 2;
 
-                                div.textContent =
-                                    `${edge.source} `
-                                    + `--${edge.relation}--> `
-                                    + `${edge.target}`;
+          const r =
+            Math.min(width, height) * .34;
 
-                                graph.appendChild(
-                                    div
-                                );
+          const positions = {};
 
-                            }
-                        );
 
-                    }
+          /*
+           * 1. 给可见节点建立位置
+           */
+          visibleNodes.forEach((node, i) => {
 
-                    // Sources
+            const nodeId =
+              getNodeId(node);
 
-                    document.getElementById(
-                        "sources"
-                    ).textContent =
-                        JSON.stringify(
-                            data.sources,
-                            null,
-                            2
-                        );
-
-                } catch (error) {
-
-                    document.getElementById(
-                        "answer"
-                    ).textContent =
-                        "查询失败：" + error.message;
-
-                    document.getElementById(
-                        "retrieval"
-                    ).textContent =
-                        "";
-
-                }
-
+            if (!nodeId) {
+              return;
             }
 
-        </script>
+            const a =
+              -Math.PI / 2 +
+              2 * Math.PI * i / visibleNodes.length;
 
+            positions[nodeId] = {
+              x: cx + r * Math.cos(a),
+              y: cy + r * Math.sin(a)
+            };
+          });
+
+
+          /*
+           * 2. 绘制关系
+           */
+          visibleEdges.forEach(edge => {
+
+            const sourceId =
+              String(edge.source || "").trim();
+
+            const targetId =
+              String(edge.target || "").trim();
+
+            const s =
+              positions[sourceId];
+
+            const t =
+              positions[targetId];
+
+            if (!s || !t) {
+              return;
+            }
+
+
+            const line =
+              document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+              );
+
+            line.setAttribute("x1", s.x);
+            line.setAttribute("y1", s.y);
+            line.setAttribute("x2", t.x);
+            line.setAttribute("y2", t.y);
+            line.setAttribute(
+              "class",
+              "graph-edge"
+            );
+
+            svg.appendChild(line);
+
+
+            const label =
+              document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "text"
+              );
+
+            label.setAttribute(
+              "x",
+              (s.x + t.x) / 2
+            );
+
+            label.setAttribute(
+              "y",
+              (s.y + t.y) / 2 - 5
+            );
+
+            label.setAttribute(
+              "class",
+              "graph-edge-label"
+            );
+
+            label.textContent =
+              getDisplayRelation(edge.relation);
+
+            svg.appendChild(label);
+          });
+
+
+          /*
+           * 3. 绘制节点
+           */
+          visibleNodes.forEach(node => {
+
+            const nodeId =
+              getNodeId(node);
+
+            const displayLabel =
+              getDisplayLabel(node);
+
+            if (!displayLabel) {
+              return;
+            }
+
+            const p =
+              positions[nodeId];
+
+            if (!p) {
+              return;
+            }
+
+
+            const g =
+              document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "g"
+              );
+
+            g.setAttribute(
+              "class",
+              "graph-node"
+            );
+
+
+            const circle =
+              document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "circle"
+              );
+
+            circle.setAttribute(
+              "cx",
+              p.x
+            );
+
+            circle.setAttribute(
+              "cy",
+              p.y
+            );
+
+            circle.setAttribute(
+              "r",
+              30
+            );
+
+            g.appendChild(circle);
+
+
+            const text =
+              document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "text"
+              );
+
+            text.setAttribute(
+              "x",
+              p.x
+            );
+
+            text.setAttribute(
+              "y",
+              p.y
+            );
+
+            text.textContent =
+              displayLabel;
+
+            g.appendChild(text);
+
+            svg.appendChild(g);
+          });
+        }
+
+
+        function formatRelationPath(path) {
+
+          if (
+            !Array.isArray(path) ||
+            path.length === 0
+          ) {
+            return "";
+          }
+
+
+          if (
+            path.length >= 3 &&
+            path.length % 2 === 1 &&
+            path.every(
+              item => typeof item === "string"
+            )
+          ) {
+
+            const parts = [];
+
+            for (
+              let i = 0;
+              i < path.length - 2;
+              i += 2
+            ) {
+
+              if (i === 0) {
+                parts.push(path[i]);
+              }
+
+              parts.push(
+                "--[" +
+                getDisplayRelation(path[i + 1]) +
+                "]-->"
+              );
+
+              parts.push(path[i + 2]);
+            }
+
+            return parts.join(" ");
+          }
+
+
+          return path.join(" → ");
+        }
+
+
+        async function query() {
+
+          const question =
+            document
+              .getElementById("question")
+              .value
+              .trim();
+
+          const button =
+            document.getElementById(
+              "queryButton"
+            );
+
+
+          if (!question) {
+            alert("请输入问题");
+            return;
+          }
+
+
+          button.disabled = true;
+          button.textContent = "查询中...";
+
+          document.getElementById(
+            "answer"
+          ).textContent = "正在查询...";
+
+          document.getElementById(
+            "graphStatus"
+          ).textContent = "正在生成图谱...";
+
+
+          try {
+
+            const response =
+              await fetch(
+                "/query",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json"
+                  },
+                  body: JSON.stringify({
+                    question: question
+                  })
+                }
+              );
+
+
+            if (!response.ok) {
+              throw new Error(
+                "HTTP " + response.status
+              );
+            }
+
+
+            const data =
+              await response.json();
+
+
+            /*
+             * 智能回答
+             */
+            document.getElementById(
+              "answer"
+            ).textContent =
+              data.answer || "暂无回答";
+
+
+            /*
+             * 检索信息
+             */
+            renderRetrieval(data);
+
+
+            /*
+             * Evidence
+             */
+            renderList(
+              "evidence",
+              data.evidences,
+              "evidence-item",
+              item => {
+
+                if (typeof item === "string") {
+                  return escapeHtml(item);
+                }
+
+
+                const content =
+                  item.content ||
+                  item.text ||
+                  "";
+
+                const source =
+                  item.source_url ||
+                  item.source ||
+                  "";
+
+                const method =
+                  item.retrieval_method ||
+                  "—";
+
+                const score =
+                  item.score != null
+                    ? Number(item.score).toFixed(4)
+                    : "—";
+
+
+                const path =
+                  Array.isArray(
+                    item.relation_path
+                  )
+                    ? formatRelationPath(
+                        item.relation_path
+                      )
+                    : (
+                        item.relation_path ||
+                        ""
+                      );
+
+
+                return `
+                  <div style="font-weight:600;margin-bottom:6px">
+                    Evidence ${escapeHtml(
+                      item.index ?? ""
+                    )}
+                  </div>
+
+                  <div style="margin-bottom:6px">
+                    ${escapeHtml(content)}
+                  </div>
+
+                  <div style="color:#6b7280;font-size:12px">
+                    检索方式：
+                    ${escapeHtml(method)}
+                    · 相关性分数：
+                    ${escapeHtml(score)}
+                  </div>
+
+                  ${
+                    path
+                      ? `
+                        <div style="
+                          margin-top:6px;
+                          color:#6b7280;
+                          font-size:12px
+                        ">
+                          关系路径：
+                          ${escapeHtml(path)}
+                        </div>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    source
+                      ? `
+                        <div style="
+                          margin-top:6px;
+                          color:#6b7280;
+                          font-size:12px
+                        ">
+                          来源：
+                          ${escapeHtml(source)}
+                        </div>
+                      `
+                      : ""
+                  }
+                `;
+              }
+            );
+
+
+            /*
+             * Relation Paths
+             */
+            renderList(
+              "paths",
+              data.paths,
+              "path-item",
+              item => {
+
+                if (typeof item === "string") {
+                  return escapeHtml(item);
+                }
+
+
+                if (
+                  Array.isArray(
+                    item.relation_path
+                  )
+                ) {
+
+                  return escapeHtml(
+                    formatRelationPath(
+                      item.relation_path
+                    )
+                  );
+                }
+
+
+                if (item.path) {
+                  return escapeHtml(
+                    item.path
+                  );
+                }
+
+
+                return escapeHtml(
+                  JSON.stringify(item)
+                );
+              }
+            );
+
+
+            /*
+             * Sources
+             */
+            renderList(
+              "sources",
+              data.sources,
+              "source-item",
+              item => {
+
+                if (typeof item === "string") {
+                  return escapeHtml(item);
+                }
+
+                return escapeHtml(
+                  JSON.stringify(item)
+                );
+              }
+            );
+
+
+            /*
+             * Knowledge Graph
+             */
+            renderGraph(
+              data.graph_nodes,
+              data.graph_edges
+            );
+
+          } catch (error) {
+
+            document.getElementById(
+              "answer"
+            ).innerHTML =
+              '<span class="error">' +
+              '查询失败：' +
+              escapeHtml(error.message) +
+              '</span>';
+
+            document.getElementById(
+              "graphStatus"
+            ).textContent =
+              "查询失败";
+
+          } finally {
+
+            button.disabled = false;
+            button.textContent = "查询";
+          }
+        }
+
+      </script>
     </body>
-
     </html>
     """
 
 
 @app.post("/query")
 def query(request: QueryRequest):
-    """主问答接口。"""
 
     response = query_service.query(
         request.question
     )
 
-    return asdict(response)
+    result = asdict(response)
+
+    result["explanation"] = build_explanation(
+        response
+    )
+
+    return result
 
 
-@app.get("/graph", response_model=GraphResponse)
-def graph():
-    """返回 Stage 1 示例知识图谱子图。"""
+@app.post("/graph", response_model=GraphResponse)
+def graph(request: QueryRequest):
+    """返回当前问题对应知识图谱子图。"""
 
     response = query_service.query(
-        "什么是蜀绣？"
+        request.question
     )
 
     return GraphResponse(
@@ -572,12 +1258,12 @@ def graph():
     )
 
 
-@app.get("/source", response_model=SourceResponse)
-def source():
-    """返回当前示例查询的来源。"""
+@app.post("/source", response_model=SourceResponse)
+def source(request: QueryRequest):
+    """返回当前问题来源。"""
 
     response = query_service.query(
-        "什么是蜀绣？"
+        request.question
     )
 
     return SourceResponse(

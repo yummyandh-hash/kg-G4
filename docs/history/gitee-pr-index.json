@@ -1,0 +1,699 @@
+{
+  "native_github_prs_recreated": false,
+  "lossless_export_verified": false,
+  "records": [
+    {
+      "number": 1,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/1",
+      "title": "feat(orchestration): define interface contracts",
+      "state": "Merged",
+      "creator_text": "于铭赫 create on 2026-09-03 23:34",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 1,
+        "full_title": "feat(orchestration): define interface contracts",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/1",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "于铭赫 create on 2026-09-03 23:34",
+        "conversation_text_verbatim": "完成 A/D/E 第一阶段统一接口定义。\n主要内容：\n* Document\n* RetrievalContext\n* Evidence\n* Retriever Protocol\n* RouteDecision\n* AnswerResponse\n* 单元测试\n测试：\npython -m pytest tests/test_models.py -v\n6 passed\n说明：Retriever 统一采用 retrieve(query, context) -> List[Evidence]。Retriever latency 由 orchestration pipeline 统一测量。\n\nOperation Logs:\n于铭赫 assigned 于铭赫 to participate in the review on Sep 3 11:34\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/1/head",
+          "original_sha": "717535dd79b308fd381e7a08ac4f24889d6d9383",
+          "github_sha": "16c7bb19be477f47bd695e6b4904b7cc33b9392c",
+          "github_tag": "archive/gitee-pr/1/head"
+        },
+        {
+          "gitee_ref": "refs/pull/1/MERGE",
+          "original_sha": "7d829c7fac36010ea579c3d15b3e2d1df1eeadec",
+          "github_sha": "69346d0f001c3944a9fa3a378cc0032d6acd3aea",
+          "github_tag": "archive/gitee-pr/1/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/2",
+      "title": "E: complete stage1",
+      "state": "Closed",
+      "creator_text": "QingMaxLim create on 2026-09-05 00:49",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Closed",
+        "number": 2,
+        "full_title": "E: complete stage1",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/2",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "QingMaxLim create on 2026-09-05 00:49",
+        "conversation_text_verbatim": "1. E: complete stage1\n2. feat(e): add query orchestration service\n3. Merge remote-tracking branch 'origin/main' into feature/E-system\n4. feat(api): add FastAPI skeleton\n5. !1:feat(orchestration): define interface contracts feat(orchestration): define interface contracts\n\nOperation Logs:\nQingMaxLim assigned 于铭赫 to participate in the review on Sep 4 12:49\nReviewer: In progress (0/1)\nTester: In progress (0/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/2/head",
+          "original_sha": "a32b6f4aeab2f2e94c06209beb29d72c1ecb3df8",
+          "github_sha": "9073a693abfbd2ed3d60aa2a0afd862e07b69d09",
+          "github_tag": "archive/gitee-pr/2/head"
+        },
+        {
+          "gitee_ref": "refs/pull/2/MERGE",
+          "original_sha": "e90809f7b585c08916148a6ea9c7209a39af1569",
+          "github_sha": "0f6b3feae98934c56ef06afbe4dcdcc60e94ee7a",
+          "github_tag": "archive/gitee-pr/2/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/3",
+      "title": "!1 feat(orchestration): define interface contracts",
+      "state": "Merged",
+      "creator_text": "于铭赫 create on 2026-09-05 11:42",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 3,
+        "full_title": "!1 feat(orchestration): define interface contracts",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/3",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "于铭赫 create on 2026-09-05 11:42",
+        "conversation_text_verbatim": "!1:feat(orchestration): define interface contracts\nfeat(orchestration): define interface contracts\nfeat(orchestration): complete interface data models\nfeat(orchestration): add answer response model\nfeat(orchestration): add route decision model\nfeat(orchestration): add retriever protocol\n\nOperation Logs:\n于铭赫 assigned 于铭赫 participate in the review Sep 4 23:42\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/3/head",
+          "original_sha": "ed2a56f1c6c9aaa872449342975cf761d6478c66",
+          "github_sha": "a761bbb1e1cb9ee26ad113ebfa996637515dd053",
+          "github_tag": "archive/gitee-pr/3/head"
+        },
+        {
+          "gitee_ref": "refs/pull/3/MERGE",
+          "original_sha": "9c402feca14602b943540909b86abb1f93404428",
+          "github_sha": "a6606eeeecb710d9c057c2db23f0a6c1e8610a85",
+          "github_tag": "archive/gitee-pr/3/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/4",
+      "title": "feat(orchestration): add query analysis and complexity scoring",
+      "state": "Merged",
+      "creator_text": "于铭赫 create on 2026-09-05 12:25",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 4,
+        "full_title": "feat(orchestration): add query analysis and complexity scoring",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/4",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "于铭赫 create on 2026-09-05 12:25",
+        "conversation_text_verbatim": "feat(orchestration): add query analysis and complexity scoring\n\nOperation Logs:\n于铭赫 assigned 于铭赫 participate in the review Sep 5 00:25\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/4/head",
+          "original_sha": "93470c4c52074c982d560abef447ac0389de2f62",
+          "github_sha": "89b96b598715a4b63d020eb9aab2c22f341f3c85",
+          "github_tag": "archive/gitee-pr/4/head"
+        },
+        {
+          "gitee_ref": "refs/pull/4/MERGE",
+          "original_sha": "ba56b8a6dee0de108f9dc1cb294495b3eb74db01",
+          "github_sha": "7d296fe0b2fb2b8e1a5073eae1ea24f2dc62a0ed",
+          "github_tag": "archive/gitee-pr/4/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/5",
+      "title": "feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+      "state": "Merged",
+      "creator_text": "xiaohanyuer create on 2026-09-05 23:22",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 5,
+        "full_title": "feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/5",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "xiaohanyuer create on 2026-09-05 23:22",
+        "conversation_text_verbatim": "1. 实现BaseRetriever统一抽象接口，定义RetrievalRequest、Evidence标准输出结构\n2. VectorRetriever：向量检索，读取B的chunks.jsonl\n3. GraphRetriever：Neo4j图检索，支持节点检索 + one‑hop一跳检索\n4. MultiRetriever混合检索器：聚合向量+图检索结果，对外遵守BaseRetriever接口，上层A直接调用\n全部本地自测通过。\n\nOperation Logs:\nxiaohanyuer assigned 于铭赫 participate in the review Sep 5 11:22\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/5/head",
+          "original_sha": "020524b1c90b8a5fcffb36e7b0dd6637e7b81752",
+          "github_sha": "45037a2e1f7353b56dad677528b8bf61c39e45f8",
+          "github_tag": "archive/gitee-pr/5/head"
+        },
+        {
+          "gitee_ref": "refs/pull/5/MERGE",
+          "original_sha": "2f80398aabbf19e021184a7ceb8d81647c6ab0a1",
+          "github_sha": "1e95e5b02d3e73f5fd996c6353d37dd8ab884b3e",
+          "github_tag": "archive/gitee-pr/5/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/6",
+      "title": "!5 feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+      "state": "Merged",
+      "creator_text": "于铭赫 create on 2026-09-06 11:39",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 6,
+        "full_title": "!5 feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/6",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "于铭赫 create on 2026-09-06 11:39",
+        "conversation_text_verbatim": "1. Pull Request: feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口 !5:feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口\n2. fix(d): 修正自测retrieve调用传参错误，遵循BaseRetriever对外接口\n3. feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口\n4. feat(d): 完成VectorRetriever、GraphRetriever(含one‑hop)，对齐统一Retriever接口与Evidence数据结构\n5. merge(main): 同步main最新接口契约与orchestration模块\n\nOperation Logs:\n于铭赫 assigned 于铭赫 participate in the review Sep 5 23:39\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/6/head",
+          "original_sha": "9e2018a31d2e96f73d36d1723c76e83466623e7d",
+          "github_sha": "774320c4f91fbb8b4ff7a73a9383b72c0e7b49fd",
+          "github_tag": "archive/gitee-pr/6/head"
+        },
+        {
+          "gitee_ref": "refs/pull/6/MERGE",
+          "original_sha": "cb9d02a997a169cba8778f3cb5bfcf0271316e68",
+          "github_sha": "fc58418cddcba7f87216a9eab83120802b300a4a",
+          "github_tag": "archive/gitee-pr/6/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/7",
+      "title": "feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+      "state": "Merged",
+      "creator_text": "xiaohanyuer create on 2026-09-06 14:40",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "number": 7,
+        "full_title": "feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/7",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "xiaohanyuer create on 2026-09-06 14:40",
+        "conversation_text_verbatim": "1. fix(d): 修正自测retrieve调用传参错误，遵循BaseRetriever对外接口\n2. feat(d): 实现MultiRetriever混合检索器，合并向量+图检索结果，对齐BaseRetriever接口\n3. feat(d): 完成VectorRetriever、GraphRetriever(含one‑hop)，对齐统一Retriever接口与Evidence数据结构\n4. merge(main): 同步main最新接口契约与orchestration模块\n5. feat(d): 对齐Router V0契约，实现_inner_retrieve适配层，graph完成AuraDB连接\n\nOperation Logs:\nxiaohanyuer assigned 于铭赫 participate in the review Sep 6 02:40\nReviewer: 于铭赫-tjuymh Completed (1/1)\nTester: 于铭赫-tjuymh Completed (1/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/7/head",
+          "original_sha": "91a9bb2806c7c90a0abcefa7140bcbfe5943c3cd",
+          "github_sha": "70abea985db6505d1fd04a0088be023421070cd6",
+          "github_tag": "archive/gitee-pr/7/head"
+        },
+        {
+          "gitee_ref": "refs/pull/7/MERGE",
+          "original_sha": "3784921936b9993f45388861f4cc2456290e5f28",
+          "github_sha": "d666f61b5fe7ce5087bd937ae99a21b320369d7d",
+          "github_tag": "archive/gitee-pr/7/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/8",
+      "title": "Merge remote-tracking branch 'origin/main' into feat/b-crawler-ihchina",
+      "state": "Merged",
+      "creator_text": "雷玺功 create on 2026-09-08 16:42",
+      "creator_evidence": "focused header UI check",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "Merge remote-tracking branch 'origin/main' into feat/b-crawler-ihchina",
+        "number": 8,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/8",
+        "author_text": "于铭赫",
+        "limitations": "None",
+        "source_branch": "feat/b-crawler-ihchina",
+        "target_branch": "main",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created 2026-09-08 16:42, Merged Sep 8 09:56",
+        "description_verbatim": "1. B模块提交，增加相关说明文档 2. 已合并main最新主线代码完成同步 3. crawler/clean_simple.py冲突采用main(C模块)版本",
+        "operation_log_verbatim": "雷玺功 assigned 于铭赫 (Sep 8 04:42); 于铭赫 check/test passed (Sep 8 04:45); 雷玺功 merged (Sep 8 09:56).",
+        "review_status_verbatim": "Pass review"
+      },
+      "lossless_text_verified": false,
+      "header_qa": {
+        "state": "Merged",
+        "number": 8,
+        "full_title": "Merge remote-tracking branch 'origin/main' into feat/b-crawler-ihchina",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/8",
+        "limitations": "Full title captured as the complete git-style merge title in the DOM heading text, not the truncated list preview text (which showed 'Merge remote…'). The creator line comes from the 'created by' text below the PR heading. State is 'Merged'. No issues with this record.",
+        "source_branch": "于铭赫:feat/b-crawler-ihchina",
+        "target_branch": "于铭赫:main",
+        "header_text_verbatim": "Merge remote-tracking branch 'origin/main' into feat/b-crawler-ihchina",
+        "creator_line_verbatim": "雷玺功 create on 2026-09-08 16:42"
+      },
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/8/head",
+          "original_sha": "97c9e40b5ca2e4c6a6efed44cc302e21a5329794",
+          "github_sha": "a8a4c0bdec54f93be874d2ccc3de354301b57e66",
+          "github_tag": "archive/gitee-pr/8/head"
+        },
+        {
+          "gitee_ref": "refs/pull/8/MERGE",
+          "original_sha": "8b9c4b6c49735f87e2c751bb6b5d531042d37898",
+          "github_sha": "8a0b0a4392413e48f87130725e050084856658d6",
+          "github_tag": "archive/gitee-pr/8/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/9",
+      "title": "李牧芸",
+      "state": "Merged",
+      "creator_text": "李牧芸 create on 2026-09-08 17:05",
+      "creator_evidence": "focused header UI check",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "fix/cmodule-fragment-batch",
+        "number": 9,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/9",
+        "author_text": "李牧芸",
+        "limitations": "None",
+        "source_branch": "fix/cmodule-fragment-batch",
+        "target_branch": "main",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created 2026-09-08 17:05, Merged Sep 13 06:55",
+        "description_verbatim": "lmy stage2: refine C module graph cleaning",
+        "operation_log_verbatim": "李牧芸 assigned 于铭赫 (Sep 8 05:05); 于铭赫 test/check passed and merged (Sep 13 06:55).",
+        "review_status_verbatim": "Approved"
+      },
+      "lossless_text_verified": false,
+      "header_qa": {
+        "state": "Merged",
+        "number": 9,
+        "full_title": "李牧芸",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/9",
+        "limitations": "The PR title is extremely short (仅 '李牧芸') — possibly a placeholder or minimal commit message. It was captured verbatim from the DOM heading text. This seems unusual for a real PR title but is what the page reports.",
+        "source_branch": "于铭赫:fix/cmodule-fragment-batch",
+        "target_branch": "于铭赫:main",
+        "header_text_verbatim": "李牧芸",
+        "creator_line_verbatim": "李牧芸 create on 2026-09-08 17:05"
+      },
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/9/head",
+          "original_sha": "b6788f1fcda418a046ef139ffdec721451ba666b",
+          "github_sha": "ca2447b50908660bae21c71ef26bc135f87d4360",
+          "github_tag": "archive/gitee-pr/9/head"
+        },
+        {
+          "gitee_ref": "refs/pull/9/MERGE",
+          "original_sha": "1ba3950c28b3c77254f6ad38254967891e2792f5",
+          "github_sha": "7e6ef5d1aa1e49c575b4c216c29449f8175502ff",
+          "github_tag": "archive/gitee-pr/9/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/10",
+      "title": "fix(d): implement selected_route forced dispatch, add 3-mode local tes…",
+      "state": "Merged",
+      "creator_text": "xiaohanyuer create on 2026-09-11 16:11",
+      "creator_evidence": "focused header UI check",
+      "title_complete": false,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "fix(d): implement selected_route forced dispatch, add 3-mode local tes…",
+        "number": 10,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/10",
+        "author_text": "于铭赫",
+        "limitations": "None",
+        "source_branch": "于铭赫:feat/D-stage2-retriever",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created 2026-09-11 16:11",
+        "description_verbatim": "1. RetrievalContext新增selected_route字段; 2. MultiRetriever实现强制路由分发; 3. Evidence输出relation_path格式为字典数组.",
+        "operation_log_verbatim": "xiaohanyuer assigned participants (Sep 11 04:11); 于铭赫 merged (Sep 13 06:59).",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "header_qa": {
+        "state": "Merged",
+        "number": 10,
+        "full_title": "fix(d): implement selected_route forced dispatch, add 3-mode local tes…",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/10",
+        "limitations": "The PR title is TRUNCATED in the DOM heading text — it ends with 'tes…' (ellipsis). The full title is not available from the heading/DOM text. I checked the list preview link text which also shows 'fix(d): implement selected_route forced dispatch, add 3-mode local tes…'. The truncation appears to be a UI limitation. The actual full title is UNRESOLVED and cannot be recovered from the page without further interaction (e.g., expanding or checking tooltip).",
+        "source_branch": "于铭赫:feat/D-stage2-retriever",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "header_text_verbatim": "fix(d): implement selected_route forced dispatch, add 3-mode local tes…",
+        "creator_line_verbatim": "xiaohanyuer create on 2026-09-11 16:11"
+      },
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/10/head",
+          "original_sha": "f8ffd920484970b671fc43c93fee449211b76f22",
+          "github_sha": "5c4ef91618f6e26215b78a3f5008b9a65ee1e21a",
+          "github_tag": "archive/gitee-pr/10/head"
+        },
+        {
+          "gitee_ref": "refs/pull/10/MERGE",
+          "original_sha": "263ce6390d7c46e30bfe43cc14347b8e6a1c74c2",
+          "github_sha": "9caa4265f2b8b136aefef9ca521f282f0809ba4f",
+          "github_tag": "archive/gitee-pr/10/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/11",
+      "title": "feat(a): support hybrid route dispatch",
+      "state": "Merged",
+      "creator_text": "于铭赫",
+      "creator_evidence": "provider author_text; not independently verified creator",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "feat(a): support hybrid route dispatch",
+        "number": 11,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/11",
+        "author_text": "于铭赫",
+        "limitations": "None",
+        "source_branch": "feat/A-stage2-router-v2",
+        "target_branch": "integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created 2026-09-11 17:15, Merged Sep 13 07:26",
+        "description_verbatim": "1. feat(a): support hybrid route dispatch 2. feat(a): add router experiment summary 3. feat(a): expose router v2 experiment outputs 4. docs(a): describe stage2 router workflow 5. feat(a): add routing experiment runner",
+        "operation_log_verbatim": "于铭赫 assigned participants (Sep 11 05:15); Push code series; 于铭赫 check/test passed and merged (Sep 13 07:26).",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/11/head",
+          "original_sha": "cbed64df547cf197755da7cbabbf9c53666a7765",
+          "github_sha": "1718c83bd4b4ebc4bcd62bdda91c15553cb85d71",
+          "github_tag": "archive/gitee-pr/11/head"
+        },
+        {
+          "gitee_ref": "refs/pull/11/MERGE",
+          "original_sha": "0cd5536a3f7ea55e7bcc8c93ef39dd9d1721937b",
+          "github_sha": "104cf520d401eb15b915fadc22b74fb64a0afa80",
+          "github_tag": "archive/gitee-pr/11/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/12",
+      "title": "B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明",
+      "state": "Closed",
+      "creator_text": "雷玺功 create on 2026-09-13 18:55",
+      "creator_evidence": "creator line reported by UI",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Closed",
+        "number": 12,
+        "full_title": "B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/12",
+        "limitations": "",
+        "capture_complete": true,
+        "creator_line_verbatim": "雷玺功 create on 2026-09-13 18:55",
+        "conversation_text_verbatim": "1. B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明\n2. B‑Stage2：更新benchmark输出报告，新增题库脚本、jsonl数据集，迭代多份说明文档\n3. B‑Stage2：新增benchmark评测题库模块，补充任务3相关交付文档\n4. B‑Stage2：新增证据溯源、引用校验服务代码，配套测试与交付说明文档\n5. B-Stage2: 新增entity_resolver实体归一代码，补充stage2规划文档\n\nOperation Logs:\n雷玺功 assigned 于铭赫 participate in the review Sep 13 06:55\n雷玺功 assigned xiaohanyuer participate in the review Sep 13 06:55\n雷玺功 assigned QingMaxLim participate in the review Sep 13 06:55\n雷玺功 assigned 雷玺功 participate in the review Sep 13 06:55\n雷玺功 assigned 李牧芸 participate in the review Sep 13 06:55\n于铭赫 closed the pull request Sep 13 07:06\n\nReviewer: In progress (0/1)\nTester: In progress (0/1)\n\nComments: No comments."
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/12/head",
+          "original_sha": "01bd9be37b172b0d42b72497ac339db180320301",
+          "github_sha": "92ac24a595e9f1b6940db70f826544d8c0e36bb3",
+          "github_tag": "archive/gitee-pr/12/head"
+        },
+        {
+          "gitee_ref": "refs/pull/12/MERGE",
+          "original_sha": "3cf45824893845d42d88495152b1313bb191212a",
+          "github_sha": "45b653548cd703f986597656989bfc45dd9f4149",
+          "github_tag": "archive/gitee-pr/12/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/13",
+      "title": "feat(c): add stage2 neo4j graph cleaning",
+      "state": "Merged",
+      "creator_text": "李牧芸 create on 2026-09-13 18:56",
+      "creator_evidence": "focused header UI check",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "feat(c): add stage2 neo4j graph cleaning",
+        "number": 13,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/13",
+        "author_text": "于铭赫",
+        "limitations": "None",
+        "source_branch": "feat/C-stage2-neo4j",
+        "target_branch": "integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created 2026-09-13 18:56, Merged Sep 13 07:15",
+        "description_verbatim": "feat(c): add stage2 neo4j graph cleaning; chore(stage2): add frozen retrieval module to base; fix(a): pass relation query context and build graph edges; E: complete stage1; feat(e): add query orchestration service",
+        "operation_log_verbatim": "李牧芸 assigned 于铭赫, xiaohanyuer, QingMaxLim, 雷玺功, 李牧芸 (Sep 13 06:56); 于铭赫 check/test passed and merged (Sep 13 07:15).",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "header_qa": {
+        "state": "Merged",
+        "number": 13,
+        "full_title": "feat(c): add stage2 neo4j graph cleaning",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/13",
+        "limitations": "No issues with this record. Full title is complete and not truncated.",
+        "source_branch": "于铭赫:feat/C-stage2-neo4j",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "header_text_verbatim": "feat(c): add stage2 neo4j graph cleaning",
+        "creator_line_verbatim": "李牧芸 create on 2026-09-13 18:56"
+      },
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/13/head",
+          "original_sha": "9c97cb695f5e9fa9232d849fd666f6fc92c4e90c",
+          "github_sha": "e4fa992cef2265cc513ade94f4dd508dbe894080",
+          "github_tag": "archive/gitee-pr/13/head"
+        },
+        {
+          "gitee_ref": "refs/pull/13/MERGE",
+          "original_sha": "ab186bf778c9ed7a8861c7c7c6cee70384454aa3",
+          "github_sha": "d4757aa8db17f43ca610304088b8457dfc8b2712",
+          "github_tag": "archive/gitee-pr/13/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 14,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/14",
+      "title": "B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明",
+      "state": "Merged",
+      "creator_text": "雷玺功",
+      "creator_evidence": "provider author_text; not independently verified creator",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明",
+        "number": 14,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/14",
+        "author_text": "雷玺功",
+        "limitations": "Merged date not explicitly captured.",
+        "source_branch": "于铭赫:feat/b-crawler-ihchina",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created on 2026-09-13 19:05",
+        "description_verbatim": "1. B‑Stage2：新增score_evidence证据打分模块、单元测试，更新benchmark文档与交付说明 2. B‑Stage2：更新benchmark输出报告, 3. B‑Stage2：新增benchmark评测题库模块, 4. B‑Stage2：新增证据溯源、引用校验服务代码, 5. B-Stage2: 新增entity_resolver实体归一代码.",
+        "operation_log_verbatim": "雷玺功 assigned 于铭赫 participate in the review on 9/13/2026, 07:05:35.",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/14/head",
+          "original_sha": "89aa5caa72c563b199d14f07fb5354cee828efea",
+          "github_sha": "27fbac53688ba3aba8a611612cb3aaff622c524b",
+          "github_tag": "archive/gitee-pr/14/head"
+        },
+        {
+          "gitee_ref": "refs/pull/14/MERGE",
+          "original_sha": "ca2a233f56452ddea332f93bbc51ed1695749852",
+          "github_sha": "05f066654d6f0469c69ace944c53d7b929b1413f",
+          "github_tag": "archive/gitee-pr/14/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 15,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/15",
+      "title": "feat(e): add stage2 context and explainability",
+      "state": "Merged",
+      "creator_text": "QingMaxLim",
+      "creator_evidence": "provider author_text; not independently verified creator",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "feat(e): add stage2 context and explainability",
+        "number": 15,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/15",
+        "author_text": "QingMaxLim",
+        "limitations": "Merged date not explicitly captured.",
+        "source_branch": "于铭赫:feat/E-stage2-frontend",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created on 2026-09-13 20:19",
+        "description_verbatim": "Changes: Add Stage 2 Context Engineering V1, Add evidence deduplication, ranking and context length control, Add entity / relation path / source collection, Enhance explainability output, Preserve graph_nodes / graph_edges for frontend rendering. Testing: pytest -q, 66 passed, 1 warning.",
+        "operation_log_verbatim": "QingMaxLim assigned 于铭赫 participate in the review on Sep 13 08:19.",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/15/head",
+          "original_sha": "a05f2e8321272d6b5dc95b0b2373f89ed0906dbe",
+          "github_sha": "2fe68300d182bc40d6f7ea902a0304fce1b0a676",
+          "github_tag": "archive/gitee-pr/15/head"
+        },
+        {
+          "gitee_ref": "refs/pull/15/MERGE",
+          "original_sha": "38c483889aecde7ff91743cec652518f88636414",
+          "github_sha": "58df25ebf4aeda9d9f3ff0cc6ae65c3c6a562023",
+          "github_tag": "archive/gitee-pr/15/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 16,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/16",
+      "title": "fix(c): align category batch semantics with B data",
+      "state": "Merged",
+      "creator_text": "李牧芸",
+      "creator_evidence": "provider author_text; not independently verified creator",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "fix(c): align category batch semantics with B data",
+        "number": 16,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/16",
+        "author_text": "李牧芸",
+        "limitations": "None",
+        "source_branch": "于铭赫:feat/C-stage2-neo4j",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created date 2026-09-13 21:20, Merged date 11/5/2026, 23:23:06",
+        "description_verbatim": "fix(c): align category batch semantics with B data",
+        "operation_log_verbatim": "李牧芸 assigned 于铭赫, xiaohanyuer, QingMaxLim, 雷玺功, 李牧芸 to review (9/13/2026, 09:20:14); 李牧芸 assigned testers (9/13/2026, 09:20:14-09:20:15); 于铭赫 merged Pull Request (11/5/2026, 23:23:06).",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/16/head",
+          "original_sha": "f19daf985669acb11e726e3c4801e35c042c1160",
+          "github_sha": "f13ad953ba974a3f74955247d575861f059d402a",
+          "github_tag": "archive/gitee-pr/16/head"
+        },
+        {
+          "gitee_ref": "refs/pull/16/MERGE",
+          "original_sha": "77fd7a8da9c79bea0f8e0a793b5eadb971e8a638",
+          "github_sha": "f05a5d41e3ca3a86d6ad45011694ffe1d4a84a4b",
+          "github_tag": "archive/gitee-pr/16/MERGE"
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/17",
+      "title": "chore(e): add stage2 deployment files",
+      "state": "Merged",
+      "creator_text": "QingMaxLim create on 2026-09-14 15:51",
+      "creator_evidence": "focused header UI check",
+      "title_complete": true,
+      "ui_observation": {
+        "state": "Merged",
+        "title": "chore(e): add stage2 deployment files",
+        "number": 17,
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/17",
+        "author_text": "QingMaxLim",
+        "limitations": "No specific merged date displayed in summary.",
+        "source_branch": "于铭赫:feat/E-stage2-frontend",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "capture_complete": true,
+        "discussion_verbatim": "Empty",
+        "timestamps_verbatim": "Created on 2026-09-14 15:51",
+        "description_verbatim": "1. chore(e): add stage2 deployment files 2. feat(e): complete stage2 frontend integration.",
+        "operation_log_verbatim": "QingMaxLim assigned 于铭赫 participate in the review at 9/14/2026, 03:51:39; Reviewer status is 'Completed (1/1)', Tester status is 'Completed (1/1)'.",
+        "review_status_verbatim": "Completed (1/1)"
+      },
+      "lossless_text_verified": false,
+      "header_qa": {
+        "state": "Merged",
+        "number": 17,
+        "full_title": "chore(e): add stage2 deployment files",
+        "source_url": "https://gitee.com/tjuymh/kg-g5/pulls/17",
+        "limitations": "No issues with this record. Full title is complete.",
+        "source_branch": "于铭赫:feat/E-stage2-frontend",
+        "target_branch": "于铭赫:integration/stage2-base",
+        "header_text_verbatim": "chore(e): add stage2 deployment files",
+        "creator_line_verbatim": "QingMaxLim create on 2026-09-14 15:51"
+      },
+      "code_refs": [
+        {
+          "gitee_ref": "refs/pull/17/head",
+          "original_sha": "4bfee5593f2a9cbc47000219dd136639ae38c039",
+          "github_sha": "eee7732987d0ba4f5240745be8b3782f672afb51",
+          "github_tag": "archive/gitee-pr/17/head"
+        },
+        {
+          "gitee_ref": "refs/pull/17/MERGE",
+          "original_sha": "0f95a92c9c4f59fa697c5b52ac2193e6d7f124e0",
+          "github_sha": "619c6bb269cbe05af37d9303b2585d14d4e6687f",
+          "github_tag": "archive/gitee-pr/17/MERGE"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "网页采集覆盖 17 个 PR 编号；不能保证正文、评论、审核逐条完整。",
+    "部分提供方内容经过归纳；verbatim 字段名不代表已验证逐字无损。",
+    "!10 标题截断，完整标题仍待确认。",
+    "MERGE 标签来自平台提供的 PR 代码引用，即使 PR 已关闭也可能存在；不能据此认定该 PR 已合并。"
+  ]
+}

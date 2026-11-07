@@ -1,0 +1,33 @@
+name: 开发或交付任务
+description: 跟踪真实待办、责任模块和验收条件
+labels: [enhancement]
+body:
+  - type: textarea
+    id: scope
+    attributes:
+      label: 目标与范围
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: 责任模块
+      options:
+        - A - 编排与评估
+        - B - 数据
+        - C - 图谱
+        - D - 检索
+        - E - Web/API
+        - 仓库管理
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 上下游依赖
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件与证据
+    validations:
+      required: true

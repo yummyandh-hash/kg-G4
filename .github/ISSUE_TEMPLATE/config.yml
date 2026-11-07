@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 协作指南
+    url: https://github.com/yummyandh-hash/kg-G4/blob/main/CONTRIBUTING.md
+    about: 查看分支、测试和审核流程。

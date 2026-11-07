@@ -2,7 +2,7 @@
 
 ## 2026-11-07 · 仓库治理
 
-新增公开 README、协作与测试说明、贡献与历史索引、Issue/PR 模板、CODEOWNERS、固定官方 Actions SHA 的 CI 和依赖更新配置。通过新的真实 PR 引入，不改写历史成员提交。
+新增公开 README、协作与测试说明、贡献与历史索引、Issue/PR 模板、CODEOWNERS、固定官方 Actions SHA 的 CI 和依赖更新配置。通过新的真实 PR 引入，不改写历史成员提交。修复无 .gitmodules 的旧 gitlink 入口，将当前空入口换为溯源说明，解决 Actions checkout 失败。
 
 ## 2026-11-07 · 公开迁移基线
 

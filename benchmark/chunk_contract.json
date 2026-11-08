@@ -1,0 +1,44 @@
+{
+  "schema_version": "B-chunks-v1-frozen-2026-09-12",
+  "owner": "雷玺功",
+  "corpus_path": "data/chunks/chunks.jsonl",
+  "corpus_sha256": "d402574e1bf60f9144770138acad668782aea74eddb631d3e90f09978dcb6460",
+  "row_count": 27375,
+  "fields": {
+    "chunk_id": "string",
+    "chunk_type": "string",
+    "content": "string",
+    "source_name": "string",
+    "source_category": "string",
+    "source_region": "string",
+    "source_org": "string",
+    "source_url": "string",
+    "retrieved_at": "string",
+    "document_id": "string",
+    "source_batch": "string"
+  },
+  "citation_lookup_field": "chunk_id",
+  "display_title_field": "source_name",
+  "source_url_field": "source_url",
+  "absent_fields": [
+    "title",
+    "source",
+    "source_id",
+    "evidence_id"
+  ],
+  "evidence_mapping": {
+    "source_id": "chunk_id",
+    "evidence_id": "chunk_id (recommended fallback)",
+    "content": "content",
+    "source_url": "source_url"
+  },
+  "routing_inputs_sha256": "29d0b59493742c4d382391acf004d29eab82a0c00ccd3fb5909d89139c5d4872",
+  "question_count": 15,
+  "categories": {
+    "single_hop": 5,
+    "multi_hop": 5,
+    "summary": 5
+  },
+  "route_labels": "由A整理；题型不等于期望路由",
+  "change_policy": "字段名称、类型、含义及既有切片ID冻结；结构或ID规则改变先同步A/D，内容变化需更新相关索引、复核题库并重跑。"
+}

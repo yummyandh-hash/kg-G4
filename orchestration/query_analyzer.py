@@ -1,5 +1,5 @@
 class QueryAnalyzer:
-    """基于可解释规则的 Query Analyzer V0。"""
+    """Rule-based query type analyzer for Stage 1 routing."""
 
     COMPARISON_CUES = (
         "区别", "不同", "异同", "比较", "相比",
@@ -8,16 +8,21 @@ class QueryAnalyzer:
 
     RELATION_CUES = (
         "关系", "联系", "关联", "有什么关系",
-        "有什么联系", "如何影响",
+        "是什么关系", "之间的关系", "之间是什么关系",
+        "有什么联系", "如何影响", "分布于",
+        "位于", "保护单位", "申报地区",
     )
 
     CONSTRAINT_CUES = (
         "哪些", "列出", "筛选", "同时满足",
-        "并且", "且", "属于",
+        "并且", "且", "属于", "分别",
+        "概括", "总结", "说明", "归纳",
+        "主要内容", "社会功能", "传承方式",
+        "发展阶段", "结合材料", "根据正文",
     )
 
     def analyze(self, query: str) -> str:
-        """返回查询类型：fact/relation/comparison/constraint。"""
+        """Return fact/relation/comparison/constraint."""
         query = query.strip()
 
         if any(cue in query for cue in self.COMPARISON_CUES):

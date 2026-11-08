@@ -42,7 +42,7 @@ def run_stage2(
     out_dir.mkdir(parents=True, exist_ok=True)
     export_json(resolved, out_dir, "kg_v2.json")
     export_graph_data(resolved, out_dir, "graph_data_for_d_v2.json")
-    export_cypher(resolved, out_dir, "kg_v2.cypher")
+    export_cypher(resolved, out_dir, include_provenance=True, filename="kg_v2.cypher")
     (out_dir / "extraction_result_v2.json").write_text(
         json.dumps(result_to_json(resolved), ensure_ascii=False, indent=2),
         encoding="utf-8",

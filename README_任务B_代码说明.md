@@ -43,7 +43,7 @@
 
 ### 3. 交付文档
 - **DELIVERY_C_D_CHUNKS_2026-09-04.md** - 给C和D成员的交付说明
-- **GIT_PUSH_INSTRUCTIONS.md** - Git推送指南
+- **CONTRIBUTING.md** - 项目协作指南
 - **README_任务B_代码说明.md** - 本说明文档
 
 ## 使用方法
@@ -105,7 +105,7 @@ python crawler/chunk_simple.py
 
 ## 下一步
 
-1. 将代码推送到Gitee（参考GIT_PUSH_INSTRUCTIONS.md）
+1. 按项目协作指南提交变更
 2. 将chunks数据交付给C和D成员
 3. 扩展爬取更多批次的非遗数据
 

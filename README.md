@@ -1,56 +1,49 @@
 # 非遗智谱 · AP-ICH-GraphRAG
 
-面向中国非物质文化遗产的自适应 GraphRAG 智能问答系统，五人知识工程课程实践项目。
+面向中国非物质文化遗产的自适应 GraphRAG 智能问答系统。项目由五名成员完成，包含数据采集、知识图谱构建、检索、路由、问答和 Web 展示。
 
-[![Repository CI](https://github.com/yummyandh-hash/kg-G4/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/yummyandh-hash/kg-G4/actions/workflows/ci.yml)
+Stage2 已合入 `main`。代码、数据、测试和文档位于同一分支；完整在线查询仍需配置外部服务并进行端到端验收。
 
-[贡献分工](CONTRIBUTORS.md) · [协作指南](CONTRIBUTING.md) · [测试范围](docs/TESTING.md) · [助教审查索引](docs/REPOSITORY_REVIEW.md) · [Gitee 历史](docs/history/README.md)
+[成员分工](CONTRIBUTORS.md) · [测试说明](docs/TESTING.md) · [审查索引](docs/REPOSITORY_REVIEW.md) · [协作指南](CONTRIBUTING.md) · [迁移历史](docs/history/README.md)
 
-## 成果入口与分支现状
+## 项目结构
 
-| 入口 | 实际内容 |
-| --- | --- |
-| [Stage2 集成分支](https://github.com/yummyandh-hash/kg-G4/tree/integration/stage2-base) | API/Web、路由、检索适配、证据处理和解释的集成候选，是功能审查的主要入口 |
-| main | 迁移时的较早代码基线，加本次仓库治理；不能据此认定 Stage2 已合入 main |
-| develop | 保留的开发分支，后续通过真实 PR 集成 |
-| [Gitee 原仓库](https://gitee.com/tjuymh/kg-g5) | 原始协作记录的权威来源，访问可能需要权限 |
-| [迁移归档](https://github.com/yummyandh-hash/kg-G4/releases/tag/gitee-migration-archive) | 原始项目 Git bundle、哈希映射、注明完整性范围的 PR/活动网页采集 |
-
-## 模块与职责
-
-以下功能入口对应真实 Stage2 文件。存在文件不等于线上端到端验收已完成。
-
-| 模块 | 成员 | 代码 |
+| 内容 | 目录 | 负责人 |
 | --- | --- | --- |
-| 查询分析、复杂度、自适应路由、编排与评估 | A | [orchestration/](https://github.com/yummyandh-hash/kg-G4/tree/integration/stage2-base/orchestration) |
-| 采集、分块、数据文档 | B | [crawler/](crawler)、[data/](data)、[数据说明](docs/data_schema.md) |
-| 抽取、清洗、Neo4j 图谱 | C | [C 模块](https://github.com/yummyandh-hash/kg-G4/tree/integration/stage2-base/kg-g5-stage1-9.4-lmy) |
-| Vector / Graph 检索算法 | D | [retrieval/](https://github.com/yummyandh-hash/kg-G4/tree/integration/stage2-base/retrieval) |
-| Web/API、上下文、可解释输出 | E | [api/main.py](https://github.com/yummyandh-hash/kg-G4/blob/integration/stage2-base/api/main.py) |
+| 查询分析、路由、编排和评估 | [orchestration/](orchestration/) | A |
+| 采集、清洗、分块及语料 | [crawler/](crawler/)、[data/](data/)、[数据说明](docs/data_schema.md) | B |
+| 实体关系抽取、清洗和图谱导出 | [C 模块](kg-g5-stage1-9.4-lmy/c_module/) | C |
+| 向量和图谱检索 | [retrieval/](retrieval/) | D |
+| Web/API、上下文与解释 | [api/main.py](api/main.py) | E |
 
-编排负责分析问题、选择检索路径、调用检索器、整理证据并返回回答与来源。A 负责调度和适配，D 负责具体 Retriever 算法。
+## 安装与测试
 
-## 克隆与验证
+推荐 Python 3.10 或 3.12。首次获取代码和安装依赖：
 
-四个历史大 JSON 使用 Git LFS，需要这些输出时先安装 Git LFS。
-
-~~~bash
+```bash
 git lfs install
 git clone https://github.com/yummyandh-hash/kg-G4.git
 cd kg-G4
 python -m venv .venv
-# 激活 .venv 后：
+# 激活虚拟环境：Windows 用 .venv\Scripts\activate，macOS/Linux 用 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m pytest tests -q
-~~~
+```
 
-main 当前有 11 个单元测试，不连接数据库、不调用 LLM、不下载嵌入模型。CI 使用 Python 3.10 / 3.12，以 Actions 实际记录为准。
+四个历史图谱 JSON 使用 Git LFS；若用 ZIP 交付，请确认所需文件不是 LFS 指针。根目录 `data/chunks/chunks.jsonl` 是向量检索输入。
 
-查看完整系统时，在独立克隆中切换 integration/stage2-base。该分支的实际 API 测试依赖模型、Neo4j、数据和配置；依赖声明与 Docker 本地 wheel 问题尚待验收，详见[测试说明](docs/TESTING.md)。
+测试包含隔离外部服务的 API 契约测试，不能代替真实数据库和模型的在线验证。C 模块测试和验证边界见 [测试说明](docs/TESTING.md)。
 
-## 协作与历史
+## 配置与启动
 
-每项新变更使用独立分支、真实 PR、测试记录和清楚的提交说明。迁移基线保留 17 个项目分支、138 个项目提交及 34 个 PR 代码标签；新增治理提交另计。LFS 转换改变了 GitHub SHA，原作者、时间和提交关系已核验，原始对象保存在归档 bundle。
+1. 将 `.env.example` 复制为 `.env`，填写 Neo4j 地址、用户名和密码，以及兼容 Chat Completions 的模型服务地址、模型名和密钥。请使用自己的服务配置。
+2. 准备 Neo4j 实例并导入项目图谱数据；C 模块的抽取和 Cypher 导出入口见 [C 模块说明](kg-g5-stage1-9.4-lmy/c_module/README_C_MODULE.md)。数据库配置有效不代表已导入图谱。
+3. 运行 `python -m uvicorn api.main:app --host 127.0.0.1 --port 8000`，打开 `http://127.0.0.1:8000/`。API 入口为 `POST /query`，请求示例：`{"question": "什么是蜀绣？"}`。
 
-Gitee 网页索引覆盖 17 个 PR 编号，但评论和审核不是已验证的无损导出；10 条活动快照不代表全部历史推送。新增 GitHub PR、Issue 与审核使用真实当前身份和时间，不冒充原平台历史行为。
+首次启动需要获取 `all-MiniLM-L6-v2` 模型，并根据完整分块数据构建向量索引，可能耗时较长。Neo4j、模型服务、网络和证书均需正常可用。项目也提供 Dockerfile 和 Compose 配置；容器构建及在线查询须在目标环境验证。
 
+## 已知验证范围
+
+2026-11-08 的本机小样本试运行中，模型成功加载，向量检索返回 3 条证据；Neo4j 连接和模型服务 SSL 握手失败，完整在线查询尚未通过。自动测试和最新结果以 [GitHub Actions](https://github.com/yummyandh-hash/kg-G4/actions/workflows/ci.yml) 为准。
+
+项目迁移自 [Gitee](https://gitee.com/tjuymh/kg-g5)。分支及提交历史的保留范围和原平台记录限制见 [迁移历史](docs/history/README.md)。

@@ -2,7 +2,7 @@
 
 ## 1. 问题概述
 
-在Codex全仓审计中发现B模块数据字段存在以下问题：
+代码审查发现 B 模块数据字段存在以下问题：
 - source_category当前样本大量为"第一批"
 - 部分KG样本出现heritage_category=传统舞蹈、raw_category_name=传统美术的语义错位
 - 数据清洗过程中字段映射不完整
@@ -98,19 +98,14 @@ def normalize(raw: dict, category_id: str, retrieved_at: str) -> dict:
 
 ### 4.1 重新运行数据清洗
 
-1. **清理现有数据**：
-   ```bash
-   # 删除旧的清洗数据
-   rm -rf "D:\大三上课程\知识工程综合实践\王鑫项目\kg-g5\worktrees\kg-g5-feat-b-crawler\data\clean\documents\*"
-   rm -rf "D:\大三上课程\知识工程综合实践\王鑫项目\kg-g5\worktrees\kg-g5-feat-b-crawler\data\chunks\*"
-   ```
+重新生成数据前，请先备份现有清洗结果和分块文件，并核对数据路径及下游依赖。
 
-2. **重新运行清洗脚本**：
+1. **重新运行清洗脚本**：
    ```bash
    python crawler/clean_simple.py
    ```
 
-3. **重新运行分块脚本**：
+2. **重新运行分块脚本**：
    ```bash
    python crawler/chunk_simple.py
    ```
@@ -164,4 +159,4 @@ with open("data/chunks/chunks.jsonl", "r", encoding="utf-8") as f:
 2. **监控指标**：添加数据质量监控，检查类别分布的合理性
 3. **文档更新**：更新数据字典，明确各字段的含义和来源
 
-如需进一步协助或有任何疑问，请随时联系。
+以上为阶段性排查记录；实际字段和数据质量应以当前代码与验证结果为准。

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from orchestration.stage1 import _router_v2_model_path
 
 
@@ -27,11 +29,11 @@ def test_default_router_v2_model_path_is_used_when_present(
     outputs.mkdir()
     (outputs / "router_v2.json").write_text("{}", encoding="utf-8")
 
-    assert _router_v2_model_path(None) == "outputs\\router_v2.json"
+    assert Path(_router_v2_model_path(None)) == Path("outputs") / "router_v2.json"
 
 
-def test_missing_router_v2_model_path_returns_none(monkeypatch, tmp_path):
+def test_packaged_router_v2_model_path_is_used_as_fallback(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("KG_G5_ROUTER_V2_MODEL", raising=False)
 
-    assert _router_v2_model_path(None).endswith("orchestration\\router_v2.json")
+    assert Path(_router_v2_model_path(None)).parts[-2:] == ("orchestration", "router_v2.json")

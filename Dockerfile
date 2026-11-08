@@ -9,10 +9,7 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir --upgrade pip
 
-COPY torch-cache/torch-2.5.1+cpu-cp310-cp310-linux_x86_64.whl /tmp/
-
-RUN pip install --no-cache-dir /tmp/torch-2.5.1+cpu-cp310-cp310-linux_x86_64.whl \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY api ./api
 COPY orchestration ./orchestration

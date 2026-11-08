@@ -1,2 +1,33 @@
-# Only confirmed writers. Add module owners after invitations are accepted.
+# Module owners: all listed accounts have verified repository write access.
+# Last matching rule applies. Shared files list both responsible maintainers.
 * @yummyandh-hash
+
+# A: query analysis, routing, orchestration and evaluation
+/orchestration/ @yummyandh-hash
+/.github/ @yummyandh-hash
+/docs/history/ @yummyandh-hash
+
+# B: collection, chunks and data documentation
+/crawler/ @Lei-xigong
+/data/ @Lei-xigong
+/docs/B* @Lei-xigong
+/docs/data_schema.md @Lei-xigong @fgfnys12-pixel
+
+# C: knowledge extraction, graph cleaning and Neo4j
+/kg-g5-stage1-9.4-lmy/ @fgfnys12-pixel
+/import_kg_to_neo4j.py @fgfnys12-pixel
+
+# D: concrete retriever algorithms
+/retrieval/ @yuhanxiao43-hue
+
+# E: Web/API, context and explainability
+/api/ @QingMaxLim
+/orchestration/context.py @QingMaxLim
+/orchestration/explainability.py @QingMaxLim
+/Dockerfile @QingMaxLim
+/docker-compose.yml @QingMaxLim
+/requirements.txt @yuhanxiao43-hue @QingMaxLim
+/tests/test_api.py @QingMaxLim
+/tests/test_context.py @QingMaxLim
+/tests/test_explainability.py @QingMaxLim
+/tests/test_stage2_contract.py @yummyandh-hash @QingMaxLim

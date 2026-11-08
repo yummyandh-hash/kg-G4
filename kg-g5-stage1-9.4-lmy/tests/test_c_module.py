@@ -519,3 +519,14 @@ def test_export_cypher_supports_filename_and_optional_provenance(tmp_path):
     assert stage2_path.name == "kg_v2.cypher"
     assert "provenance_json" in text
     assert ";;" not in text
+
+
+def test_export_cypher_supports_main_positional_filename(tmp_path):
+    from c_module.neo4j_writer import export_cypher
+
+    result = ExtractionResult(entities=[EntityRecord(
+        entity_id="Category:demo", entity_type="Category", name="demo",
+    )])
+    output = export_cypher(result, tmp_path, "main-style.cypher")
+    assert output.name == "main-style.cypher"
+    assert "provenance_json" in output.read_text(encoding="utf-8")

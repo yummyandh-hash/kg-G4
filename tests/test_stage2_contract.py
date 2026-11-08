@@ -1,8 +1,5 @@
 from dataclasses import asdict
 
-from fastapi.testclient import TestClient
-
-from api.main import app
 from orchestration.explainability import build_explanation
 from orchestration.models import AnswerResponse, RouteDecision
 
@@ -33,8 +30,8 @@ def test_answer_response_exposes_optional_route_confidence():
     assert build_explanation(response)["route_confidence"] == 0.76
 
 
-def test_query_api_keeps_route_confidence_field():
-    client = TestClient(app)
+def test_query_api_keeps_route_confidence_field(api_client):
+    client = api_client
 
     response = client.post(
         "/query",

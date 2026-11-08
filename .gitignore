@@ -22,3 +22,10 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local config and generated test output
+.env.*
+!.env.example
+.coverage
+htmlcov/
+junit*.xml

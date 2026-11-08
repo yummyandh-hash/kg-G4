@@ -1,0 +1,121 @@
+[
+  {
+    "branch": "backup/E-stage2-working",
+    "original_sha": "6efe734c618694c68c453e7e20d95d396535a89a",
+    "github_sha": "2f887e8771fd3b3a9f19a3a30303cebc393b0a26",
+    "github_ref": "refs/heads/backup/E-stage2-working",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "develop",
+    "original_sha": "9e2018a31d2e96f73d36d1723c76e83466623e7d",
+    "github_sha": "774320c4f91fbb8b4ff7a73a9383b72c0e7b49fd",
+    "github_ref": "refs/heads/develop",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/A-stage2-router-v2",
+    "original_sha": "cbed64df547cf197755da7cbabbf9c53666a7765",
+    "github_sha": "1718c83bd4b4ebc4bcd62bdda91c15553cb85d71",
+    "github_ref": "refs/heads/feat/A-stage2-router-v2",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/C-stage2-neo4j",
+    "original_sha": "f19daf985669acb11e726e3c4801e35c042c1160",
+    "github_sha": "f13ad953ba974a3f74955247d575861f059d402a",
+    "github_ref": "refs/heads/feat/C-stage2-neo4j",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/D-stage2-retriever",
+    "original_sha": "f8ffd920484970b671fc43c93fee449211b76f22",
+    "github_sha": "5c4ef91618f6e26215b78a3f5008b9a65ee1e21a",
+    "github_ref": "refs/heads/feat/D-stage2-retriever",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/E-stage2-frontend",
+    "original_sha": "4bfee5593f2a9cbc47000219dd136639ae38c039",
+    "github_sha": "eee7732987d0ba4f5240745be8b3782f672afb51",
+    "github_ref": "refs/heads/feat/E-stage2-frontend",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/a-interface-contracts",
+    "original_sha": "717535dd79b308fd381e7a08ac4f24889d6d9383",
+    "github_sha": "16c7bb19be477f47bd695e6b4904b7cc33b9392c",
+    "github_ref": "refs/heads/feat/a-interface-contracts",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/a-query-analysis-v0",
+    "original_sha": "93470c4c52074c982d560abef447ac0389de2f62",
+    "github_sha": "89b96b598715a4b63d020eb9aab2c22f341f3c85",
+    "github_ref": "refs/heads/feat/a-query-analysis-v0",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/a-router-v0",
+    "original_sha": "d35d9da50660eb7610c39e04e65545b364e5665b",
+    "github_sha": "650ebda36e1f20c708b610bda0d938e91e78c029",
+    "github_ref": "refs/heads/feat/a-router-v0",
+    "source": "local branch retained in addition to Gitee branches"
+  },
+  {
+    "branch": "feat/a-stage1-integration-9-6",
+    "original_sha": "81503f18448c5de90e3e95d07ca0a0e57aba670a",
+    "github_sha": "bb4ea6e9c1b31e851119e8d3f19820cba2e59849",
+    "github_ref": "refs/heads/feat/a-stage1-integration-9-6",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/b-crawler-ihchina",
+    "original_sha": "6657caa00b9c1a281e74f11adb607481de329b2c",
+    "github_sha": "ffcd4b3cc42afeef0aa1c10fd51ff934ba105277",
+    "github_ref": "refs/heads/feat/b-crawler-ihchina",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feat/d-retriever-base-mock",
+    "original_sha": "1e9af8d4b942cb0660738ca774d9a69039067189",
+    "github_sha": "c6dae3c28ddbede982e24eb102a967ac900a3fd3",
+    "github_ref": "refs/heads/feat/d-retriever-base-mock",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "feature/E-system",
+    "original_sha": "6efe734c618694c68c453e7e20d95d396535a89a",
+    "github_sha": "2f887e8771fd3b3a9f19a3a30303cebc393b0a26",
+    "github_ref": "refs/heads/feature/E-system",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "fix/cmodule-fragment-batch",
+    "original_sha": "b6788f1fcda418a046ef139ffdec721451ba666b",
+    "github_sha": "ca2447b50908660bae21c71ef26bc135f87d4360",
+    "github_ref": "refs/heads/fix/cmodule-fragment-batch",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "integration/stage1-backend-9-8",
+    "original_sha": "8d595902c9ce97c78360948b9fbcfb70736bdfbe",
+    "github_sha": "1cf24d9aa03b24603868a71915b6fcfa400d3cfd",
+    "github_ref": "refs/heads/integration/stage1-backend-9-8",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "integration/stage2-base",
+    "original_sha": "bd1da9906d793b43bc956db42eb917d1c88cbfba",
+    "github_sha": "9023ca9ea74e79db06c67bb23d3a25d78e7b49fb",
+    "github_ref": "refs/heads/integration/stage2-base",
+    "source": "Gitee branch snapshot"
+  },
+  {
+    "branch": "main",
+    "original_sha": "4b3d8e37d7201b038e02be877c68b59c0347eada",
+    "github_sha": "6bc527758e7f366b55eb55a344c66f05197153b3",
+    "github_ref": "refs/heads/main",
+    "source": "Gitee branch snapshot"
+  }
+]

@@ -1,13 +1,3 @@
-"""基于 schema 的抽取器。
-
-当前版本使用规则 + 可插拔 LLM 接口的方式。
-这版的目标是 Stage 1 稳定 baseline：
-1. 不把批次误当 Category；
-2. 不把地名误当 ProtectionUnit；
-3. 尽量从正文里挖到文化元素；
-4. 保留完整 provenance，方便答辩解释。
-"""
-
 from __future__ import annotations
 
 import html

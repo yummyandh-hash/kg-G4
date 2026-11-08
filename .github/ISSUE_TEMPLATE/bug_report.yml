@@ -1,0 +1,25 @@
+name: 缺陷报告
+description: 提交可复现问题与验收预期
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题与预期行为
+      description: 不粘贴真实凭据。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤、命令和提交版本
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境与已脱敏日志
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件

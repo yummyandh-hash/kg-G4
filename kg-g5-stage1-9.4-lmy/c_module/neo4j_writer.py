@@ -62,6 +62,9 @@ def export_cypher(
     include_provenance: bool = False,
     filename: str = "kg_export.cypher",
 ) -> Path:
+    # main previously accepted the filename as the third positional argument.
+    if isinstance(include_provenance, str):
+        filename, include_provenance = include_provenance, True
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     cypher_file = out_path / filename

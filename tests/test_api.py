@@ -1,19 +1,13 @@
-from fastapi.testclient import TestClient
-
-from api.main import app
-
-
-client = TestClient(app)
-
-
-def test_root():
+def test_root(api_client):
+    client = api_client
     response = client.get("/")
 
     assert response.status_code == 200
     assert "AP-ICH-GraphRAG" in response.text
 
 
-def test_query():
+def test_query(api_client):
+    client = api_client
     response = client.post(
         "/query",
         json={"question": "什么是蜀绣？"},
@@ -35,7 +29,8 @@ def test_query():
     assert "graph_edges" in data
 
 
-def test_graph():
+def test_graph(api_client):
+    client = api_client
     response = client.post(
         "/graph",
         json={"question": "什么是蜀绣？"},
@@ -51,7 +46,8 @@ def test_graph():
     assert len(data["nodes"]) > 0
 
 
-def test_source():
+def test_source(api_client):
+    client = api_client
     response = client.post(
         "/source",
         json={"question": "什么是蜀绣？"},
@@ -64,7 +60,8 @@ def test_source():
     assert "sources" in data
     assert len(data["sources"]) > 0
 
-def test_context():
+def test_context(api_client):
+    client = api_client
     response = client.post(
         "/context",
         json={"question": "什么是蜀绣？"},
@@ -79,7 +76,8 @@ def test_context():
     assert "蜀绣" in data["context"]
 
 
-def test_explanation():
+def test_explanation(api_client):
+    client = api_client
     response = client.post(
         "/explanation",
         json={"question": "什么是蜀绣？"},
